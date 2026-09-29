@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 Category = Literal["none", "self_harm", "violence", "harassment", "hate", "other"]
 Severity = Literal["low", "medium", "high"]
+Branch = Literal["belief", "grievance", "joke", "mixed", "disengage"]
 
 
 class ClassifyRequest(BaseModel):
@@ -23,6 +24,15 @@ class Verdict(BaseModel):
     reason: str = Field(description="One short sentence explaining the verdict.")
 
 
+class RouteVerdict(BaseModel):
+    """Which conversation branch the user's latest reply belongs to."""
+
+    branch: Branch = Field(
+        description="Best-fitting branch for the user's latest reply."
+    )
+    reason: str = Field(description="One short sentence explaining the choice.")
+
+
 class ChatMessage(BaseModel):
     role: Literal["user", "ai"]
     text: str = Field(min_length=1, max_length=2000)
@@ -31,7 +41,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     post: str = Field(min_length=1, max_length=2000)
     verdict: Verdict
-    # Empty history means "write the opening message".
+    # Empty history means "send the fixed opening message".
     history: list[ChatMessage] = Field(default_factory=list, max_length=40)
 
     @model_validator(mode="after")

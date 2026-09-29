@@ -5,7 +5,7 @@ import logging
 from langchain_openrouter import ChatOpenRouter
 
 from app.config import load_settings
-from app.schemas import Verdict
+from app.schemas import RouteVerdict, Verdict
 
 logger = logging.getLogger("app.llm")
 
@@ -16,6 +16,14 @@ def get_classifier_llm():
     logger.debug("building classifier llm model=%s", settings.classifier_model)
     model = ChatOpenRouter(model=settings.classifier_model, temperature=0)
     return model.with_structured_output(Verdict)
+
+
+def get_router_llm():
+    """Chat model bound to the RouteVerdict schema. Reuses the classifier model."""
+    settings = load_settings()
+    logger.debug("building router llm model=%s", settings.classifier_model)
+    model = ChatOpenRouter(model=settings.classifier_model, temperature=0)
+    return model.with_structured_output(RouteVerdict)
 
 
 def get_chat_llm():

@@ -1,15 +1,15 @@
 import logging
 
 import pytest
-from fakes import FakeChat
+from fakes import FakeChat, FakeClassifier
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from app.prompts.support_chat import OPENING_INSTRUCTION
-
-
-@pytest.fixture
-def body(verdict_json):
-    return {"post": "a draft", "verdict": verdict_json, "history": []}
+from app.prompts.support_chat import (
+    BRANCH_ADDENDA,
+    CLOSING_INSTRUCTION,
+    FIXED_OPENING,
+)
+from app.schemas import RouteVerdict
 
 
 def user(text):
@@ -18,6 +18,29 @@ def user(text):
 
 def ai(text):
     return {"role": "ai", "text": text}
+
+
+def route(branch):
+    return RouteVerdict(branch=branch, reason="x")
+
+
+def convo(bot_turns):
+    """History with `bot_turns` bot messages, each answered by the user."""
+    history = []
+    for i in range(bot_turns):
+        history += [ai(f"bot {i}"), user(f"user {i}")]
+    return history
+
+
+@pytest.fixture
+def body(verdict_json):
+    return {"post": "a draft", "verdict": verdict_json, "history": [user("hello")]}
+
+
+@pytest.fixture(autouse=True)
+def router(no_real_llm, set_router):
+    """Default router: 'mixed'. Tests change `.result` / `.exc` to steer it."""
+    return set_router(FakeClassifier(route("mixed")))
 
 
 # --- validation ------------------------------------------------------------
@@ -51,20 +74,31 @@ def test_unconfigured_is_503(client, monkeypatch, body, var):
     assert r.json() == {"detail": "Chat is not configured"}
 
 
-# --- what is sent to the model --------------------------------------------
+# --- fixed opening ---------------------------------------------------------
 
 
-def test_opening_request_sends_system_prompt_and_opening_instruction(
-    client, set_chat, body
+def test_empty_history_returns_the_fixed_opening_without_calling_any_model(
+    client, set_chat, router, body
 ):
-    fake = set_chat(FakeChat(["hi"]))
-    client.post("/chat", json=body)
+    fake = set_chat(FakeChat(["should not be used"]))
+    body["history"] = []
+    r = client.post("/chat", json=body)
 
-    messages = fake.calls[0]
-    assert len(messages) == 2
-    assert isinstance(messages[0], SystemMessage)
-    assert isinstance(messages[1], HumanMessage)
-    assert messages[1].content == OPENING_INSTRUCTION
+    assert r.status_code == 200
+    assert r.text == FIXED_OPENING
+    assert fake.calls == []
+    assert router.calls == []
+
+
+def test_fixed_opening_keeps_the_no_buffering_headers(client, body):
+    body["history"] = []
+    r = client.post("/chat", json=body)
+    assert r.headers["content-type"].startswith("text/plain")
+    assert r.headers["cache-control"] == "no-cache"
+    assert r.headers["x-accel-buffering"] == "no"
+
+
+# --- what is sent to the model --------------------------------------------
 
 
 def test_history_roles_map_to_messages_in_order(client, set_chat, body):
@@ -88,15 +122,6 @@ def test_history_roles_map_to_messages_in_order(client, set_chat, body):
     ]
 
 
-def test_opening_instruction_is_not_added_when_history_exists(client, set_chat, body):
-    fake = set_chat(FakeChat(["ok"]))
-    body["history"] = [user("hello")]
-    client.post("/chat", json=body)
-
-    contents = [m.content for m in fake.calls[0]]
-    assert OPENING_INSTRUCTION not in contents
-
-
 def test_system_prompt_carries_the_post_and_verdict(client, set_chat, body):
     fake = set_chat(FakeChat(["ok"]))
     client.post("/chat", json=body)
@@ -105,6 +130,112 @@ def test_system_prompt_carries_the_post_and_verdict(client, set_chat, body):
     assert "a draft" in system
     assert "Category: hate" in system
     assert "Severity: high" in system
+
+
+# --- routing ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("branch", ["belief", "grievance", "joke", "mixed", "disengage"])
+def test_router_label_selects_the_matching_addendum(
+    client, set_chat, router, body, branch
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route(branch)
+    client.post("/chat", json=body)
+
+    system = fake.calls[0][0].content
+    assert BRANCH_ADDENDA[branch] in system
+    for other in BRANCH_ADDENDA:
+        if other != branch:
+            assert BRANCH_ADDENDA[other] not in system
+
+
+def test_router_sees_the_post_and_only_the_last_three_messages(
+    client, set_chat, router, body
+):
+    set_chat(FakeChat(["ok"]))
+    body["history"] = [
+        ai("first bot"),
+        user("first user"),
+        ai("second bot"),
+        user("second user"),
+        ai("third bot"),
+        user("third user"),
+    ]
+    client.post("/chat", json=body)
+
+    system_msg, human_msg = router.calls[0]
+    assert isinstance(system_msg, SystemMessage)
+    text = human_msg.content
+    assert "a draft" in text
+    for kept in ("second user", "third bot", "third user"):
+        assert kept in text
+    for dropped in ("first bot", "first user", "second bot"):
+        assert dropped not in text
+
+
+def test_router_failure_falls_back_to_mixed_and_is_logged(
+    client, set_chat, router, body, caplog
+):
+    caplog.set_level(logging.WARNING, logger="app.chat")
+    fake = set_chat(FakeChat(["ok"]))
+    router.exc = RuntimeError("router down")
+    r = client.post("/chat", json=body)
+
+    assert r.status_code == 200
+    assert r.text == "ok"
+    assert BRANCH_ADDENDA["mixed"] in fake.calls[0][0].content
+    assert any("chat: router failed" in rec.getMessage() for rec in caplog.records)
+
+
+def test_router_factory_exception_falls_back_to_mixed(
+    client, set_chat, monkeypatch, body
+):
+    def broken():
+        raise RuntimeError("bad router config")
+
+    monkeypatch.setattr("app.routers.chat.get_router_llm", broken)
+    fake = set_chat(FakeChat(["ok"]))
+    r = client.post("/chat", json=body)
+
+    assert r.status_code == 200
+    assert BRANCH_ADDENDA["mixed"] in fake.calls[0][0].content
+
+
+def test_router_returning_the_wrong_type_falls_back_to_mixed(
+    client, set_chat, router, body
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = "not a RouteVerdict"
+    r = client.post("/chat", json=body)
+
+    assert r.status_code == 200
+    assert BRANCH_ADDENDA["mixed"] in fake.calls[0][0].content
+
+
+# --- turn cap --------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bot_turns", [1, 5, 6])
+def test_before_the_eighth_bot_message_there_is_no_closing_instruction(
+    client, set_chat, body, bot_turns
+):
+    fake = set_chat(FakeChat(["ok"]))
+    body["history"] = convo(bot_turns)
+    client.post("/chat", json=body)
+
+    assert CLOSING_INSTRUCTION not in fake.calls[0][0].content
+
+
+@pytest.mark.parametrize("bot_turns", [7, 8, 9])
+def test_from_the_eighth_bot_message_on_the_reply_is_a_warm_close(
+    client, set_chat, body, bot_turns
+):
+    fake = set_chat(FakeChat(["ok"]))
+    body["history"] = convo(bot_turns)
+    client.post("/chat", json=body)
+
+    assert CLOSING_INSTRUCTION in fake.calls[0][0].content
 
 
 # --- streaming -------------------------------------------------------------

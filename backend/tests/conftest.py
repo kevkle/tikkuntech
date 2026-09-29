@@ -26,6 +26,7 @@ def no_real_llm(monkeypatch):
 
     monkeypatch.setattr("app.routers.classify.get_classifier_llm", boom)
     monkeypatch.setattr("app.routers.chat.get_chat_llm", boom)
+    monkeypatch.setattr("app.routers.chat.get_router_llm", boom)
 
 
 @pytest.fixture
@@ -47,6 +48,15 @@ def set_classifier(monkeypatch):
 def set_chat(monkeypatch):
     def _set(fake):
         monkeypatch.setattr("app.routers.chat.get_chat_llm", lambda: fake)
+        return fake
+
+    return _set
+
+
+@pytest.fixture
+def set_router(monkeypatch):
+    def _set(fake):
+        monkeypatch.setattr("app.routers.chat.get_router_llm", lambda: fake)
         return fake
 
     return _set

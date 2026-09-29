@@ -1,7 +1,7 @@
 import pytest
 
 from app import llm
-from app.schemas import Verdict
+from app.schemas import RouteVerdict, Verdict
 
 
 class CapturingChatOpenRouter:
@@ -50,8 +50,18 @@ def test_classifier_llm_is_bound_to_the_verdict_schema():
     assert llm.get_classifier_llm().structured_schema is Verdict
 
 
+def test_router_llm_reuses_the_classifier_model_and_is_deterministic():
+    model = llm.get_router_llm()
+    assert model.kwargs == {"model": "test/classifier", "temperature": 0}
+
+
+def test_router_llm_is_bound_to_the_route_verdict_schema():
+    assert llm.get_router_llm().structured_schema is RouteVerdict
+
+
 def test_factories_read_models_from_the_environment(monkeypatch):
     monkeypatch.setenv("CHAT_MODEL", "other/chat-model")
     monkeypatch.setenv("CLASSIFIER_MODEL", "other/classifier-model")
     assert llm.get_chat_llm().kwargs["model"] == "other/chat-model"
     assert llm.get_classifier_llm().kwargs["model"] == "other/classifier-model"
+    assert llm.get_router_llm().kwargs["model"] == "other/classifier-model"

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas import ChatRequest, ClassifyRequest, Verdict
+from app.schemas import ChatRequest, ClassifyRequest, RouteVerdict, Verdict
 
 
 def verdict_dict(**overrides):
@@ -37,6 +37,27 @@ def test_verdict_rejects_unknown_values(field, value):
 def test_verdict_requires_all_fields():
     with pytest.raises(ValidationError):
         Verdict(harmful=True)
+
+
+# --- RouteVerdict ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "branch", ["belief", "grievance", "joke", "mixed", "disengage"]
+)
+def test_route_verdict_accepts_every_branch(branch):
+    assert RouteVerdict(branch=branch, reason="x").branch == branch
+
+
+@pytest.mark.parametrize("branch", ["angry", "unclear", "crisis"])
+def test_route_verdict_rejects_unknown_branch(branch):
+    with pytest.raises(ValidationError):
+        RouteVerdict(branch=branch, reason="x")
+
+
+def test_route_verdict_requires_all_fields():
+    with pytest.raises(ValidationError):
+        RouteVerdict(branch="joke")
 
 
 # --- ClassifyRequest -------------------------------------------------------
