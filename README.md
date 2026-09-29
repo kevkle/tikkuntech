@@ -49,4 +49,4 @@ pytest
 
 ## Status
 
-Phases 1 (scaffold), 2 (classifier and Post-click flow) and 3 (streaming supportive chat) are implemented. Tests are still to do.
+Phases 1 (scaffold), 2 (classifier and Post-click flow), 3 (streaming supportive chat), 4 (backend tests) and 5 (incremental streaming through the proxy) are implemented. The frontend has no automated tests.

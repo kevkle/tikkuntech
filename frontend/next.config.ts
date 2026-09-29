@@ -5,6 +5,8 @@ const backendUrl = process.env.BACKEND_URL ?? "http://backend:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // gzip buffers the streamed /api/chat reply, so the text would arrive all at once.
+  compress: false,
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backendUrl}/:path*` }];
   },
