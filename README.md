@@ -29,4 +29,4 @@ docker compose up --build
 
 ## Status
 
-Phase 1 (scaffold and frontend conversion) is done. `/classify` and `/chat` return 501 until Phases 2 and 3.
+Phases 1 (scaffold) and 2 (classifier and Post-click flow) are implemented. `/chat` returns 501 until Phase 3, so the modal still uses a static first message.

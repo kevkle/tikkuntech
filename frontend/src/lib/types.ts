@@ -13,9 +13,17 @@ export type Message = {
 };
 
 // Mirrors backend/app/schemas.py Verdict
+export type Category =
+  | "none"
+  | "self_harm"
+  | "violence"
+  | "harassment"
+  | "hate"
+  | "other";
+
 export type Verdict = {
   harmful: boolean;
-  category: string;
+  category: Category;
   severity: "low" | "medium" | "high";
   reason: string;
 };
