@@ -238,6 +238,73 @@ def test_from_the_eighth_bot_message_on_the_reply_is_a_warm_close(
     assert CLOSING_INSTRUCTION in fake.calls[0][0].content
 
 
+# --- transcript ------------------------------------------------------------
+
+
+def transcript_lines(caplog):
+    return [r.getMessage() for r in caplog.records if r.name == "app.transcript"]
+
+
+def test_transcript_logs_branch_turn_user_message_and_full_bot_reply(
+    client, set_chat, router, body, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(["Hel", "lo"]))
+    router.result = route("grievance")
+    body["history"] = [ai(FIXED_OPENING), user("i am angry")]
+    client.post("/chat", json=body)
+
+    assert transcript_lines(caplog) == [
+        "transcript: branch=grievance turn=2 user='i am angry' bot='Hello'"
+    ]
+
+
+def test_transcript_logs_the_fixed_opening(client, body, caplog):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    body["history"] = []
+    client.post("/chat", json=body)
+
+    assert transcript_lines(caplog) == [
+        f"transcript: branch=opening turn=1 user=None bot={FIXED_OPENING!r}"
+    ]
+
+
+def test_transcript_stays_on_one_line_when_text_has_newlines(
+    client, set_chat, body, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(["one\ntwo"]))
+    body["history"] = [user("a\nb")]
+    client.post("/chat", json=body)
+
+    (line,) = transcript_lines(caplog)
+    assert "\n" not in line
+    assert "user='a\\nb'" in line and "bot='one\\ntwo'" in line
+
+
+def test_transcript_is_not_written_when_the_stream_fails_midway(
+    client, set_chat, body, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(["one", "two", "three"], fail_after=2))
+    try:
+        client.post("/chat", json=body)
+    except Exception:
+        pass  # an aborted stream may surface as an exception in the test client
+
+    assert transcript_lines(caplog) == []
+
+
+def test_transcript_is_not_written_when_the_chat_fails_to_start(
+    client, set_chat, body, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(fail_before_first=True))
+    client.post("/chat", json=body)
+
+    assert transcript_lines(caplog) == []
+
+
 # --- streaming -------------------------------------------------------------
 
 

@@ -13,6 +13,8 @@ from app.prompts.support_chat import FIXED_OPENING, build_system_prompt
 from app.schemas import Branch, ChatRequest, RouteVerdict
 
 logger = logging.getLogger("app.chat")
+# The one logger that carries message text, kept separate so it can be filtered on its own.
+transcript = logging.getLogger("app.transcript")
 
 router = APIRouter()
 
@@ -27,6 +29,17 @@ def _text(chunk) -> str:
         return content
     return "".join(
         part if isinstance(part, str) else part.get("text", "") for part in content
+    )
+
+
+def _log_transcript(branch: str, turn: int, user_text: str | None, bot_text: str) -> None:
+    # %r keeps each exchange on one line even when the text has newlines.
+    transcript.info(
+        "transcript: branch=%s turn=%d user=%r bot=%r",
+        branch,
+        turn,
+        user_text,
+        bot_text,
     )
 
 
@@ -83,6 +96,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         raise HTTPException(status_code=503, detail="Chat is not configured")
 
     if not req.history:
+        _log_transcript("opening", 1, None, FIXED_OPENING)
         return _static(FIXED_OPENING)
 
     branch = await _route(req)
@@ -99,7 +113,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         messages.append(cls(content=m.text))
 
     # Pull the first chunk before responding so a failure to start becomes a 502.
-    # Only counts, timings and a truncated error summary are logged, never user text.
+    # Apart from the transcript line at the end of the stream, only counts, timings and a
+    # truncated error summary are logged, never user text.
     started = time.perf_counter()
     try:
         stream = get_chat_llm().astream(messages)
@@ -124,13 +139,18 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
     async def body():
         chunks = 0
+        parts: list[str] = []
         if first is not None:
             chunks += 1
-            yield _text(first)
+            text = _text(first)
+            parts.append(text)
+            yield text
         try:
             async for chunk in stream:
                 chunks += 1
-                yield _text(chunk)
+                text = _text(chunk)
+                parts.append(text)
+                yield text
         except Exception as exc:
             logger.error(
                 "chat: stream failed model=%s after %d chunks, %.2fs: %s",
@@ -148,6 +168,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
             chunks,
             time.perf_counter() - started,
         )
+        _log_transcript(branch, bot_turn, req.history[-1].text, "".join(parts))
 
     return StreamingResponse(
         body(),

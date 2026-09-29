@@ -1,4 +1,5 @@
-"""Logging setup. User text (posts, chat messages) must never be logged."""
+"""Logging setup. User text (posts, chat messages) must never be logged, except by the
+app.transcript logger, which records chat exchanges on purpose."""
 
 import logging
 import os

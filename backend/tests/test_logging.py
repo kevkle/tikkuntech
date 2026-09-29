@@ -6,9 +6,22 @@ from fastapi.testclient import TestClient
 
 from app.logging_config import MAX_ERROR_CHARS, configure_logging, describe_error
 from app.main import app
+from app.schemas import RouteVerdict
 
 MARKER = "ZZSECRETMARKERZZ"
 POST = f"you are awful {MARKER}"
+
+
+@pytest.fixture(autouse=True)
+def router(no_real_llm, set_router):
+    return set_router(FakeClassifier(RouteVerdict(branch="mixed", reason="x")))
+
+
+def text_outside_transcript(caplog):
+    """Everything logged except the app.transcript lines, which carry chat text on purpose."""
+    return "\n".join(
+        r.getMessage() for r in caplog.records if r.name != "app.transcript"
+    )
 
 
 # --- describe_error --------------------------------------------------------
@@ -143,7 +156,7 @@ def test_classify_unconfigured_is_logged_as_a_warning(client, monkeypatch, caplo
 # --- chat logging ----------------------------------------------------------
 
 
-def chat_body(verdict_json, history=()):
+def chat_body(verdict_json, history=({"role": "user", "text": "hello"},)):
     return {"post": POST, "verdict": verdict_json, "history": list(history)}
 
 
@@ -154,19 +167,23 @@ def test_chat_logs_start_and_completion_without_text(
     set_chat(FakeChat(["a", "b"]))
     client.post("/chat", json=chat_body(verdict_json))
 
-    assert "chat: stream started model=test/chat history=0" in caplog.text
+    assert "chat: stream started model=test/chat history=1" in caplog.text
     assert "chat: stream done model=test/chat chunks=2" in caplog.text
-    assert MARKER not in caplog.text
+    assert MARKER not in text_outside_transcript(caplog)
 
 
-def test_chat_never_logs_history_text(client, set_chat, verdict_json, caplog):
+def test_chat_text_is_only_logged_by_the_transcript_logger(
+    client, set_chat, verdict_json, caplog
+):
     caplog.set_level(logging.DEBUG)
     set_chat(FakeChat(["ok"]))
     history = [{"role": "user", "text": f"private thoughts {MARKER}"}]
     client.post("/chat", json=chat_body(verdict_json, history))
 
     assert "history=1" in caplog.text
-    assert MARKER not in caplog.text
+    assert MARKER not in text_outside_transcript(caplog)
+    transcript = [r.getMessage() for r in caplog.records if r.name == "app.transcript"]
+    assert len(transcript) == 1 and MARKER in transcript[0]
 
 
 def test_chat_start_failure_is_logged_without_text(
@@ -176,9 +193,9 @@ def test_chat_start_failure_is_logged_without_text(
     set_chat(FakeChat(fail_before_first=True))
     client.post("/chat", json=chat_body(verdict_json))
 
-    assert "chat: failed to start model=test/chat history=0" in caplog.text
+    assert "chat: failed to start model=test/chat history=1" in caplog.text
     assert "ConnectionError: upstream down" in caplog.text
-    assert MARKER not in caplog.text
+    assert MARKER not in text_outside_transcript(caplog)
 
 
 def test_chat_unconfigured_is_logged_as_a_warning(
