@@ -61,8 +61,24 @@ def test_prompt_names_no_region_specific_numbers():
 
 def test_prompt_states_the_shared_conduct_rules():
     assert "never claim to be human" in SUPPORT_CHAT_SYSTEM_PROMPT
-    assert "1-3 short sentences" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "1-2 short sentences" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "about 30 words" in SUPPORT_CHAT_SYSTEM_PROMPT
     assert "retraction" in SUPPORT_CHAT_SYSTEM_PROMPT
+
+
+def test_prompt_bans_stating_a_stance():
+    assert "Never state your own opinion or disagreement" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "I don't see it that way" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "call to violence or hate" in SUPPORT_CHAT_SYSTEM_PROMPT
+
+
+def test_prompt_allows_one_tentative_observation():
+    assert 'starts with "I wonder if"' in SUPPORT_CHAT_SYSTEM_PROMPT
+
+
+def test_prompt_no_longer_invites_the_bot_to_share_its_view():
+    assert "Ask permission before sharing" not in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "own reaction" not in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
 def test_prompt_no_longer_asks_the_model_for_an_opening_message():
@@ -80,7 +96,8 @@ def test_every_branch_has_an_addendum():
 def test_branch_addendum_is_included_before_the_context_block(verdict, branch):
     prompt = build_system_prompt("my draft post", verdict, branch)
     assert BRANCH_ADDENDA[branch] in prompt
-    assert prompt.index(BRANCH_ADDENDA[branch]) < prompt.index(OPEN_TAG)
+    # rindex: the base prompt also mentions the tag by name, the real block is the last one.
+    assert prompt.index(BRANCH_ADDENDA[branch]) < prompt.rindex(OPEN_TAG)
 
 
 @pytest.mark.parametrize("branch", BRANCHES)
@@ -96,6 +113,19 @@ def test_default_branch_is_mixed(verdict):
     assert BRANCH_ADDENDA["mixed"] in prompt
 
 
+@pytest.mark.parametrize("branch", BRANCHES)
+def test_no_addendum_has_the_bot_share_how_it_landed(branch):
+    text = BRANCH_ADDENDA[branch]
+    assert "share how" not in text
+    assert "landed for you" not in text
+    assert "with permission" not in text
+
+
+@pytest.mark.parametrize("branch", ["belief", "grievance", "mixed"])
+def test_addenda_allow_the_soft_observation(branch):
+    assert "I wonder if" in BRANCH_ADDENDA[branch]
+
+
 def test_mixed_addendum_covers_the_not_yet_clear_case():
     assert "not yet clear" in BRANCH_ADDENDA["mixed"]
 
@@ -104,7 +134,7 @@ def test_closing_instruction_is_only_added_when_closing(verdict):
     assert CLOSING_INSTRUCTION not in build_system_prompt("p", verdict, "belief")
     closing = build_system_prompt("p", verdict, "belief", closing=True)
     assert CLOSING_INSTRUCTION in closing
-    assert closing.index(CLOSING_INSTRUCTION) < closing.index(OPEN_TAG)
+    assert closing.index(CLOSING_INSTRUCTION) < closing.rindex(OPEN_TAG)
     assert closing.rstrip().endswith(CLOSE_TAG)
 
 
