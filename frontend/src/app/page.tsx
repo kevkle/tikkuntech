@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DUMMY_POSTS, MainFeed } from "@/components/MainFeed";
 import { InterventionModal } from "@/components/InterventionModal";
-import { classifyPost } from "@/lib/api";
-import type { Post } from "@/lib/types";
+import { classifyPost, streamChat } from "@/lib/api";
+import type { Message, Post, Verdict } from "@/lib/types";
 
 /* ==========================================================================
    COMPONENT 3: App (Controller)
-   Owns the state. Post click -> /api/classify -> publish, or open the modal.
+   Owns the state. Post click -> /api/classify -> publish, or open the modal
+   and stream the supportive chat from /api/chat.
    ========================================================================== */
 
 export default function Page() {
@@ -16,8 +17,16 @@ export default function Page() {
   const [draft, setDraft] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingPost, setPendingPost] = useState("");
+  const [pendingVerdict, setPendingVerdict] = useState<Verdict | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+  const nextId = useRef(0);
 
   const publish = (text: string) => {
     setPosts((prev) => [
@@ -25,6 +34,46 @@ export default function Page() {
       ...prev,
     ]);
     setDraft("");
+  };
+
+  // Streams one assistant reply. `history` is everything before that reply;
+  // an empty history asks the server for the opening message.
+  const runAssistantTurn = async (
+    post: string,
+    verdict: Verdict,
+    history: Message[],
+  ) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const aiId = nextId.current++;
+    setMessages([...history, { id: aiId, role: "ai", text: "" }]);
+    setIsStreaming(true);
+    setChatError(null);
+
+    try {
+      await streamChat(
+        post,
+        verdict,
+        history,
+        (delta) =>
+          setMessages((prev) =>
+            prev.map((m) => (m.id === aiId ? { ...m, text: m.text + delta } : m)),
+          ),
+        controller.signal,
+      );
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      console.error("chat failed:", err instanceof Error ? err.message : err);
+      // The user can still delete or publish, so a chat failure never blocks them.
+      setMessages((prev) => prev.filter((m) => !(m.id === aiId && m.text === "")));
+      setChatError(
+        "Something went wrong. You can try sending again, or choose an option below.",
+      );
+    } finally {
+      if (abortRef.current === controller) setIsStreaming(false);
+    }
   };
 
   const handlePostClick = async (text: string) => {
@@ -37,11 +86,14 @@ export default function Page() {
       const verdict = await classifyPost(trimmed);
       if (verdict.harmful) {
         setPendingPost(trimmed);
+        setPendingVerdict(verdict);
         setIsModalOpen(true);
+        void runAssistantTurn(trimmed, verdict, []);
       } else {
         publish(trimmed);
       }
-    } catch {
+    } catch (err) {
+      console.error("classify failed:", err instanceof Error ? err.message : err);
       // Fail closed: never publish a post that could not be checked.
       setError("We couldn't check your post. Please try again.");
     } finally {
@@ -49,9 +101,21 @@ export default function Page() {
     }
   };
 
+  const handleSendMessage = (text: string) => {
+    if (isStreaming || !pendingVerdict) return;
+    const userMessage: Message = { id: nextId.current++, role: "user", text };
+    void runAssistantTurn(pendingPost, pendingVerdict, [...messages, userMessage]);
+  };
+
   const closeModal = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsStreaming(false);
+    setMessages([]);
+    setChatError(null);
     setIsModalOpen(false);
     setPendingPost("");
+    setPendingVerdict(null);
   };
 
   return (
@@ -66,9 +130,10 @@ export default function Page() {
       />
       <InterventionModal
         isOpen={isModalOpen}
-        onSendMessage={() => {
-          /* TODO (Phase 3): send reply, append AI response */
-        }}
+        messages={messages}
+        isStreaming={isStreaming}
+        chatError={chatError}
+        onSendMessage={handleSendMessage}
         onDeletePost={() => {
           setDraft("");
           closeModal();

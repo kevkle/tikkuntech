@@ -1,25 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Message } from "@/lib/types";
 
 /* ==========================================================================
    COMPONENT 2: InterventionModal
-   Overlay chat. Backend hookup points:
+   Overlay chat. Presentational: the parent owns the conversation.
      - `isOpen`          -> controlled by parent
-     - `initialMessage`  -> first AI message (can come from server)
+     - `messages`        -> the conversation so far (assistant text streams in)
+     - `isStreaming`     -> true while a reply is arriving; input is disabled
+     - `chatError`       -> shown under the chat if a reply failed
      - `onSendMessage`   -> called with the user's reply text
      - `onDeletePost`, `onPublishAnyway` -> button handlers
      - `onClose` -> exit without deleting or publishing (back to editing)
-   The two bottom buttons are static for now (no-op defaults).
    ========================================================================== */
-
-const INITIAL_AI_MESSAGE =
-  "Hey, I noticed the content of your post. I'm genuinely interested to hear what led you to write this. Care to share?";
 
 type InterventionModalProps = {
   isOpen?: boolean;
-  initialMessage?: string;
+  messages?: Message[];
+  isStreaming?: boolean;
+  chatError?: string | null;
   onSendMessage?: (text: string) => void;
   onDeletePost?: () => void;
   onPublishAnyway?: () => void;
@@ -28,23 +28,26 @@ type InterventionModalProps = {
 
 export function InterventionModal({
   isOpen = false,
-  initialMessage = INITIAL_AI_MESSAGE,
+  messages = [],
+  isStreaming = false,
+  chatError = null,
   onSendMessage = () => {},
   onDeletePost = () => {},
   onPublishAnyway = () => {},
   onClose = () => {},
 }: InterventionModalProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 0, role: "ai", text: initialMessage },
-  ]);
   const [input, setInput] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [messages, chatError]);
 
   if (!isOpen) return null;
 
   const handleSend = () => {
     const text = input.trim();
-    if (!text) return;
-    setMessages((prev) => [...prev, { id: prev.length, role: "user", text }]);
+    if (!text || isStreaming) return;
     setInput("");
     onSendMessage(text);
   };
@@ -84,16 +87,22 @@ export function InterventionModal({
               className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2 text-sm ${
                   m.role === "user"
                     ? "bg-indigo-600 text-white"
                     : "bg-white text-slate-700 shadow-sm ring-1 ring-slate-200"
                 }`}
               >
-                {m.text}
+                {m.text || (isStreaming && m.role === "ai" ? "…" : "")}
               </div>
             </div>
           ))}
+          {chatError && (
+            <p role="alert" className="text-sm text-rose-600">
+              {chatError}
+            </p>
+          )}
+          <div ref={bottomRef} />
         </div>
 
         {/* Chat input */}
@@ -102,12 +111,14 @@ export function InterventionModal({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            disabled={isStreaming}
             placeholder="Type your reply..."
-            className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50"
           />
           <button
             onClick={handleSend}
-            className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
+            disabled={isStreaming}
+            className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
           >
             Send
           </button>
