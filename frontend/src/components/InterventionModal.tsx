@@ -9,7 +9,8 @@ import type { Message } from "@/lib/types";
      - `isOpen`          -> controlled by parent
      - `initialMessage`  -> first AI message (can come from server)
      - `onSendMessage`   -> called with the user's reply text
-     - `onDeletePost`, `onPublishAnyway`, `onClose` -> button handlers
+     - `onDeletePost`, `onPublishAnyway` -> button handlers
+     - `onClose` -> exit without deleting or publishing (back to editing)
    The two bottom buttons are static for now (no-op defaults).
    ========================================================================== */
 
@@ -22,6 +23,7 @@ type InterventionModalProps = {
   onSendMessage?: (text: string) => void;
   onDeletePost?: () => void;
   onPublishAnyway?: () => void;
+  onClose?: () => void;
 };
 
 export function InterventionModal({
@@ -30,6 +32,7 @@ export function InterventionModal({
   onSendMessage = () => {},
   onDeletePost = () => {},
   onPublishAnyway = () => {},
+  onClose = () => {},
 }: InterventionModalProps) {
   const [messages, setMessages] = useState<Message[]>([
     { id: 0, role: "ai", text: initialMessage },
@@ -53,8 +56,24 @@ export function InterventionModal({
       aria-modal="true"
     >
       <div className="flex h-[36rem] max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="border-b border-slate-200 px-5 py-4 font-semibold text-slate-800">
-          Before you post
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <span className="font-semibold text-slate-800">Before you post</span>
+          <button
+            onClick={onClose}
+            aria-label="Close and keep editing my post"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
 
         {/* Chat window */}

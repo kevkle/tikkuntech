@@ -77,6 +77,7 @@ export default function Page() {
           publish(pendingPost);
           closeModal();
         }}
+        onClose={closeModal} // back to editing; draft stays in the feed
       />
     </>
   );
