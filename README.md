@@ -13,13 +13,18 @@ A social-feed demo that screens a post before it is published. If an LLM classif
 
 ## Configuration
 
-Set these in the container environment (see `.env.example`):
+Copy `.env.example` to `.env` and fill it in. It is git-ignored, and Compose loads it into the backend container:
+
+```
+cp .env.example .env
+```
 
 | Variable | Purpose |
 |---|---|
 | `OPENROUTER_API_KEY` | OpenRouter token, used by the backend only |
 | `CLASSIFIER_MODEL` | Model ID for the harm classifier |
 | `CHAT_MODEL` | Model ID for the supportive chat |
+| `LOG_LEVEL` | Optional. `INFO` (default) or `DEBUG` for tracebacks. Post and chat text are never logged. |
 
 ## Run
 
@@ -33,4 +38,4 @@ After changing `requirements.txt` or `package.json`, rebuild. For the frontend, 
 
 ## Status
 
-Phases 1 (scaffold) and 2 (classifier and Post-click flow) are implemented. `/chat` returns 501 until Phase 3, so the modal still uses a static first message.
+Phases 1 (scaffold), 2 (classifier and Post-click flow) and 3 (streaming supportive chat) are implemented. Tests are still to do.
