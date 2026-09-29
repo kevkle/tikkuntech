@@ -1,3 +1,12 @@
+# Dev target for hot reload (used by docker-compose.override.yml)
+FROM node:22-alpine AS dev
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY . .
+ENV BACKEND_URL=http://backend:8000
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+
 FROM node:22-alpine AS build
 WORKDIR /app
 

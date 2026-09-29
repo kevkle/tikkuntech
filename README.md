@@ -23,9 +23,13 @@ Set these in the container environment (see `.env.example`):
 
 ## Run
 
+Both services run with hot reload (source is bind-mounted, `uvicorn --reload`, `next dev`):
+
 ```
 docker compose up --build
 ```
+
+After changing `requirements.txt` or `package.json`, rebuild. For the frontend, use `docker compose up --build -V` so the container's `node_modules` volume is refreshed.
 
 ## Status
 

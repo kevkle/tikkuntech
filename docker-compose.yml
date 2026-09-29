@@ -1,12 +1,15 @@
 services:
   backend:
     build: ./backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
       - OPENROUTER_API_KEY
       - CLASSIFIER_MODEL
       - CHAT_MODEL
     expose:
       - "8000"
+    volumes:
+      - ./backend/app:/srv/app
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -14,9 +17,18 @@ services:
       retries: 5
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - WATCHPACK_POLLING=true
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       backend:
         condition: service_healthy
