@@ -20,6 +20,7 @@ router = APIRouter()
 
 # The fixed opening is bot message 1, so the 8th bot message is the warm close.
 MAX_BOT_TURNS = 8
+FALLBACK_REASON = "fallback: router unavailable"
 STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
@@ -32,12 +33,20 @@ def _text(chunk) -> str:
     )
 
 
-def _log_transcript(branch: str, turn: int, user_text: str | None, bot_text: str) -> None:
-    # %r keeps each exchange on one line even when the text has newlines.
+def _log_transcript(
+    branch: str,
+    reason: str | None,
+    turn: int,
+    user_text: str | None,
+    bot_text: str,
+) -> None:
+    # %r keeps each exchange on one line even when the text has newlines. The router's
+    # reason is model-written and can quote the person, so it lives here and nowhere else.
     transcript.info(
-        "transcript: branch=%s turn=%d user=%r bot=%r",
+        "transcript: branch=%s turn=%d reason=%r user=%r bot=%r",
         branch,
         turn,
+        reason,
         user_text,
         bot_text,
     )
@@ -52,8 +61,8 @@ def _static(text: str) -> StreamingResponse:
     )
 
 
-async def _route(req: ChatRequest) -> Branch:
-    """Pick the conversation branch for the latest reply; 'mixed' if routing fails."""
+async def _route(req: ChatRequest) -> tuple[Branch, str]:
+    """Pick the branch and the router's reason for the latest reply; 'mixed' if routing fails."""
     started = time.perf_counter()
     try:
         verdict = await get_router_llm().ainvoke(
@@ -69,19 +78,19 @@ async def _route(req: ChatRequest) -> Branch:
             describe_error(exc),
         )
         logger.debug("chat: traceback", exc_info=True)
-        return "mixed"
+        return "mixed", FALLBACK_REASON
     if not isinstance(verdict, RouteVerdict):
         logger.warning(
             "chat: router returned unexpected type=%s, using mixed",
             type(verdict).__name__,
         )
-        return "mixed"
+        return "mixed", FALLBACK_REASON
     logger.info(
         "chat: routed branch=%s latency=%.2fs",
         verdict.branch,
         time.perf_counter() - started,
     )
-    return verdict.branch
+    return verdict.branch, verdict.reason
 
 
 @router.post("/chat")
@@ -96,10 +105,10 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         raise HTTPException(status_code=503, detail="Chat is not configured")
 
     if not req.history:
-        _log_transcript("opening", 1, None, FIXED_OPENING)
+        _log_transcript("opening", None, 1, None, FIXED_OPENING)
         return _static(FIXED_OPENING)
 
-    branch = await _route(req)
+    branch, reason = await _route(req)
 
     model = settings.chat_model
     turns = len(req.history)
@@ -168,7 +177,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
             chunks,
             time.perf_counter() - started,
         )
-        _log_transcript(branch, bot_turn, req.history[-1].text, "".join(parts))
+        _log_transcript(branch, reason, bot_turn, req.history[-1].text, "".join(parts))
 
     return StreamingResponse(
         body(),

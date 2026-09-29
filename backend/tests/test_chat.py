@@ -245,17 +245,18 @@ def transcript_lines(caplog):
     return [r.getMessage() for r in caplog.records if r.name == "app.transcript"]
 
 
-def test_transcript_logs_branch_turn_user_message_and_full_bot_reply(
+def test_transcript_logs_branch_turn_reason_user_message_and_full_bot_reply(
     client, set_chat, router, body, caplog
 ):
     caplog.set_level(logging.INFO, logger="app.transcript")
     set_chat(FakeChat(["Hel", "lo"]))
-    router.result = route("grievance")
+    router.result = RouteVerdict(branch="grievance", reason="feels wronged")
     body["history"] = [ai(FIXED_OPENING), user("i am angry")]
     client.post("/chat", json=body)
 
     assert transcript_lines(caplog) == [
-        "transcript: branch=grievance turn=2 user='i am angry' bot='Hello'"
+        "transcript: branch=grievance turn=2 reason='feels wronged' "
+        "user='i am angry' bot='Hello'"
     ]
 
 
@@ -265,8 +266,35 @@ def test_transcript_logs_the_fixed_opening(client, body, caplog):
     client.post("/chat", json=body)
 
     assert transcript_lines(caplog) == [
-        f"transcript: branch=opening turn=1 user=None bot={FIXED_OPENING!r}"
+        "transcript: branch=opening turn=1 reason=None user=None "
+        f"bot={FIXED_OPENING!r}"
     ]
+
+
+def test_transcript_marks_a_router_exception_as_a_fallback(
+    client, set_chat, router, body, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(["ok"]))
+    router.exc = RuntimeError("router down")
+    client.post("/chat", json=body)
+
+    (line,) = transcript_lines(caplog)
+    assert "branch=mixed" in line
+    assert "reason='fallback: router unavailable'" in line
+
+
+def test_transcript_marks_a_wrong_router_result_as_a_fallback(
+    client, set_chat, router, body, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(["ok"]))
+    router.result = "not a RouteVerdict"
+    client.post("/chat", json=body)
+
+    (line,) = transcript_lines(caplog)
+    assert "branch=mixed" in line
+    assert "reason='fallback: router unavailable'" in line
 
 
 def test_transcript_stays_on_one_line_when_text_has_newlines(

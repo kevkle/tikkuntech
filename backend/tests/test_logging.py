@@ -186,6 +186,20 @@ def test_chat_text_is_only_logged_by_the_transcript_logger(
     assert len(transcript) == 1 and MARKER in transcript[0]
 
 
+def test_router_reason_is_only_logged_by_the_transcript_logger(
+    client, set_chat, router, verdict_json, caplog
+):
+    caplog.set_level(logging.DEBUG)
+    set_chat(FakeChat(["ok"]))
+    router.result = RouteVerdict(branch="joke", reason=f"quotes {MARKER}")
+    client.post("/chat", json=chat_body(verdict_json))
+
+    assert "chat: routed branch=joke" in caplog.text
+    assert MARKER not in text_outside_transcript(caplog)
+    transcript = [r.getMessage() for r in caplog.records if r.name == "app.transcript"]
+    assert len(transcript) == 1 and MARKER in transcript[0]
+
+
 def test_chat_start_failure_is_logged_without_text(
     client, set_chat, verdict_json, caplog
 ):
