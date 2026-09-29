@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 Category = Literal["none", "self_harm", "violence", "harassment", "hate", "other"]
 Severity = Literal["low", "medium", "high"]
@@ -25,10 +25,17 @@ class Verdict(BaseModel):
 
 class ChatMessage(BaseModel):
     role: Literal["user", "ai"]
-    text: str
+    text: str = Field(min_length=1, max_length=2000)
 
 
 class ChatRequest(BaseModel):
-    post: str
+    post: str = Field(min_length=1, max_length=2000)
     verdict: Verdict
-    history: list[ChatMessage] = []
+    # Empty history means "write the opening message".
+    history: list[ChatMessage] = Field(default_factory=list, max_length=40)
+
+    @model_validator(mode="after")
+    def history_ends_with_user(self) -> "ChatRequest":
+        if self.history and self.history[-1].role != "user":
+            raise ValueError("history must end with a user message")
+        return self
