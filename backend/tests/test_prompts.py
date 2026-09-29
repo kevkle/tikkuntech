@@ -6,9 +6,15 @@ from app.prompts.support_chat import (
     BRANCH_ADDENDA,
     CLOSING_INSTRUCTION,
     CONTEXT_TAG,
+    CONTINUE_NOTE,
     FIXED_OPENING,
+    LISTEN_NOTE,
+    MENU_POST_MAX_CHARS,
+    RETURN_TO_POST_NOTE,
     SUPPORT_CHAT_SYSTEM_PROMPT,
+    build_menu_message,
     build_system_prompt,
+    stage_note,
 )
 from app.schemas import ChatMessage
 
@@ -121,9 +127,46 @@ def test_no_addendum_has_the_bot_share_how_it_landed(branch):
     assert "with permission" not in text
 
 
-@pytest.mark.parametrize("branch", ["belief", "grievance", "mixed"])
+@pytest.mark.parametrize("branch", ["belief", "grievance", "joke", "mixed"])
 def test_addenda_allow_the_soft_observation(branch):
     assert "I wonder if" in BRANCH_ADDENDA[branch]
+
+
+TARGET_OR_SOLUTION_PHRASES = [
+    "who they blame",
+    "who do you have in mind",
+    "everyone in that group",
+    "fair treatment",
+    "how someone from the group",
+    "from that group",
+    "offer at most one fact",
+]
+
+
+@pytest.mark.parametrize("phrase", TARGET_OR_SOLUTION_PHRASES)
+@pytest.mark.parametrize("branch", BRANCHES)
+def test_no_addendum_asks_about_targets_solutions_or_facts(branch, phrase):
+    assert phrase not in BRANCH_ADDENDA[branch]
+
+
+def test_prompt_keeps_questions_on_feelings_and_values():
+    assert "what justice or safety means to them" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "Never ask who they blame" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "solutions, plans, or consequences" in SUPPORT_CHAT_SYSTEM_PROMPT
+
+
+def test_prompt_says_not_to_argue_with_the_view():
+    assert "Do not argue with, correct, or question their view" in SUPPORT_CHAT_SYSTEM_PROMPT
+
+
+def test_grievance_addendum_asks_what_justice_means_to_them():
+    assert "what justice or fairness means to them" in BRANCH_ADDENDA["grievance"]
+
+
+def test_disengage_wording_matches_the_routers_narrow_definition():
+    assert "abusing you" in BRANCH_ADDENDA["disengage"]
+    assert "only sending insults or bait" not in BRANCH_ADDENDA["disengage"]
+    assert "only send insults or bait" not in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
 def test_mixed_addendum_covers_the_not_yet_clear_case():
@@ -144,11 +187,121 @@ def test_closing_instruction_asks_for_a_warm_close_with_no_question():
     assert "Do not ask a further question" in CLOSING_INSTRUCTION
 
 
+# --- stages ----------------------------------------------------------------
+
+ALL_NOTES = [LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE]
+
+
+def test_prompt_forbids_repeating_earlier_replies():
+    assert "Never begin two replies the same way" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "every reply must move the conversation on" in SUPPORT_CHAT_SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize("turn", [None, 0, 1])
+def test_no_stage_note_before_the_first_model_reply(turn):
+    assert stage_note(turn) is None
+
+
+@pytest.mark.parametrize("turn", [2, 3])
+def test_turns_two_and_three_listen_and_add_something_new(turn):
+    assert stage_note(turn) == LISTEN_NOTE
+    assert "add something new" in LISTEN_NOTE
+    assert "Do not restate a reflection you already gave" in LISTEN_NOTE
+
+
+def test_turn_four_returns_to_the_original_post():
+    assert stage_note(4) == RETURN_TO_POST_NOTE
+    assert "go back to the original post" in RETURN_TO_POST_NOTE
+    assert "emotional terms only" in RETURN_TO_POST_NOTE
+    assert "blame, politics, or what should happen" in RETURN_TO_POST_NOTE
+
+
+@pytest.mark.parametrize("turn", [5, 6, 7])
+def test_later_turns_follow_the_persons_lead(turn):
+    assert stage_note(turn) == CONTINUE_NOTE
+
+
+@pytest.mark.parametrize("note", ALL_NOTES)
+@pytest.mark.parametrize(
+    "word", ["gaza", "jew", "israel", "palestin", "zionist", "children", "babies", "kill"]
+)
+def test_stage_notes_are_topic_neutral(note, word):
+    assert word not in note.lower()
+
+
+@pytest.mark.parametrize(
+    "turn,note", [(2, LISTEN_NOTE), (4, RETURN_TO_POST_NOTE), (6, CONTINUE_NOTE)]
+)
+def test_build_includes_exactly_the_stage_note_for_the_turn(verdict, turn, note):
+    prompt = build_system_prompt("my draft post", verdict, "grievance", turn=turn)
+    assert note in prompt
+    assert prompt.index(note) < prompt.rindex(OPEN_TAG)
+    for other in ALL_NOTES:
+        if other != note:
+            assert other not in prompt
+
+
+def test_build_without_a_turn_has_no_stage_note(verdict):
+    prompt = build_system_prompt("my draft post", verdict, "grievance")
+    assert not any(note in prompt for note in ALL_NOTES)
+
+
+def test_the_closing_turn_has_no_stage_note(verdict):
+    prompt = build_system_prompt(
+        "my draft post", verdict, "belief", closing=True, turn=8
+    )
+    assert CLOSING_INSTRUCTION in prompt
+    assert not any(note in prompt for note in ALL_NOTES)
+
+
+def test_disengage_has_no_stage_note(verdict):
+    prompt = build_system_prompt("my draft post", verdict, "disengage", turn=4)
+    assert not any(note in prompt for note in ALL_NOTES)
+
+
 # --- fixed messages --------------------------------------------------------
 
 
 def test_fixed_opening_is_the_agreed_question():
     assert FIXED_OPENING == "What made you say that?"
+
+
+# --- menu message ----------------------------------------------------------
+
+
+def test_menu_message_quotes_the_post_and_states_the_flag_as_a_fact():
+    text = build_menu_message("my draft post")
+    assert '"my draft post"' in text
+    assert "flagged" in text
+
+
+def test_menu_message_leaves_the_choice_to_the_person():
+    text = build_menu_message("my draft post")
+    assert "your call" in text
+    assert text.endswith("What feels right to you?")
+
+
+@pytest.mark.parametrize("word", [" should ", "need to", "have to", "harmful", "verdict"])
+def test_menu_message_avoids_pressuring_or_labelling_words(word):
+    assert word not in build_menu_message("my draft post").lower()
+
+
+def test_menu_message_collapses_whitespace_into_one_line():
+    text = build_menu_message("line one\n\n  line   two")
+    assert '"line one line two"' in text
+    assert "\n" not in text
+
+
+def test_menu_message_truncates_a_long_post():
+    text = build_menu_message("a" * (MENU_POST_MAX_CHARS + 50))
+    assert '"' + "a" * MENU_POST_MAX_CHARS + '..."' in text
+    assert "a" * (MENU_POST_MAX_CHARS + 1) not in text
+
+
+def test_menu_message_keeps_a_post_at_the_limit_whole():
+    text = build_menu_message("a" * MENU_POST_MAX_CHARS)
+    assert '"' + "a" * MENU_POST_MAX_CHARS + '"' in text
+    assert "..." not in text
 
 
 # --- router prompt ---------------------------------------------------------
@@ -168,6 +321,25 @@ def test_router_prompt_treats_inputs_as_data():
     assert "<post>" in ROUTER_SYSTEM_PROMPT
     assert "<conversation>" in ROUTER_SYSTEM_PROMPT
     assert "data to classify" in ROUTER_SYSTEM_PROMPT
+
+
+def test_router_prompt_limits_disengage_to_abuse_of_the_assistant_spam_or_a_request_to_stop():
+    assert "abuse aimed at the assistant itself" in ROUTER_SYSTEM_PROMPT
+    assert "spam or copy-paste" in ROUTER_SYSTEM_PROMPT
+    assert "explicit request to stop" in ROUTER_SYSTEM_PROMPT
+    assert "Nothing else is disengage" in ROUTER_SYSTEM_PROMPT
+
+
+def test_router_prompt_never_treats_hateful_statements_about_others_as_disengage():
+    assert (
+        "Hateful, dehumanizing, or angry statements about other people are never "
+        "disengage" in ROUTER_SYSTEM_PROMPT
+    )
+    assert "answering the assistant's question is engaged" in ROUTER_SYSTEM_PROMPT
+
+
+def test_router_prompt_no_longer_calls_insults_or_bait_disengage():
+    assert "only insults, spam, or bait" not in ROUTER_SYSTEM_PROMPT
 
 
 def test_router_prompt_sends_vague_replies_to_mixed():

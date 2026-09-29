@@ -9,7 +9,11 @@ from app.config import load_settings
 from app.llm import get_chat_llm, get_router_llm
 from app.logging_config import describe_error
 from app.prompts.router import ROUTER_SYSTEM_PROMPT, build_router_input
-from app.prompts.support_chat import FIXED_OPENING, build_system_prompt
+from app.prompts.support_chat import (
+    FIXED_OPENING,
+    build_menu_message,
+    build_system_prompt,
+)
 from app.schemas import Branch, ChatRequest, RouteVerdict
 
 logger = logging.getLogger("app.chat")
@@ -20,6 +24,8 @@ router = APIRouter()
 
 # The fixed opening is bot message 1, so the 8th bot message is the warm close.
 MAX_BOT_TURNS = 8
+# The 5th bot message returns to the post and shows the option buttons.
+MENU_TURN = 5
 FALLBACK_REASON = "fallback: router unavailable"
 STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
@@ -39,25 +45,28 @@ def _log_transcript(
     turn: int,
     user_text: str | None,
     bot_text: str,
+    partial: bool = False,
 ) -> None:
     # %r keeps each exchange on one line even when the text has newlines. The router's
     # reason is model-written and can quote the person, so it lives here and nowhere else.
+    # partial=True marks a reply that was cut off: the text is what had streamed so far.
     transcript.info(
-        "transcript: branch=%s turn=%d reason=%r user=%r bot=%r",
+        "transcript: branch=%s turn=%d reason=%r user=%r bot=%r%s",
         branch,
         turn,
         reason,
         user_text,
         bot_text,
+        " partial=True" if partial else "",
     )
 
 
-def _static(text: str) -> StreamingResponse:
+def _static(text: str, headers: dict[str, str] | None = None) -> StreamingResponse:
     """A fixed reply, streamed like a model reply so the client reads it the same way."""
     return StreamingResponse(
         iter([text]),
         media_type="text/plain; charset=utf-8",
-        headers=STREAM_HEADERS,
+        headers={**STREAM_HEADERS, **(headers or {})},
     )
 
 
@@ -109,12 +118,21 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         return _static(FIXED_OPENING)
 
     branch, reason = await _route(req)
+    bot_turn = sum(m.role == "ai" for m in req.history) + 1
+
+    if bot_turn == MENU_TURN and branch != "disengage":
+        menu = build_menu_message(req.post)
+        _log_transcript(branch, reason, bot_turn, req.history[-1].text, menu)
+        return _static(menu, {"X-Chat-Menu": branch})
 
     model = settings.chat_model
     turns = len(req.history)
-    bot_turn = sum(m.role == "ai" for m in req.history) + 1
     system = build_system_prompt(
-        req.post, req.verdict, branch, closing=bot_turn >= MAX_BOT_TURNS
+        req.post,
+        req.verdict,
+        branch,
+        closing=bot_turn >= MAX_BOT_TURNS,
+        turn=bot_turn,
     )
     messages = [SystemMessage(content=system)]
     for m in req.history:
@@ -122,8 +140,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         messages.append(cls(content=m.text))
 
     # Pull the first chunk before responding so a failure to start becomes a 502.
-    # Apart from the transcript line at the end of the stream, only counts, timings and a
-    # truncated error summary are logged, never user text.
+    # Apart from the transcript line written when the stream ends (or is cut off), only
+    # counts, timings and a truncated error summary are logged, never user text.
     started = time.perf_counter()
     try:
         stream = get_chat_llm().astream(messages)
@@ -149,35 +167,48 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     async def body():
         chunks = 0
         parts: list[str] = []
-        if first is not None:
-            chunks += 1
-            text = _text(first)
-            parts.append(text)
-            yield text
+        finished = False
         try:
-            async for chunk in stream:
+            if first is not None:
                 chunks += 1
-                text = _text(chunk)
+                text = _text(first)
                 parts.append(text)
                 yield text
-        except Exception as exc:
-            logger.error(
-                "chat: stream failed model=%s after %d chunks, %.2fs: %s",
+            try:
+                async for chunk in stream:
+                    chunks += 1
+                    text = _text(chunk)
+                    parts.append(text)
+                    yield text
+            except Exception as exc:
+                logger.error(
+                    "chat: stream failed model=%s after %d chunks, %.2fs: %s",
+                    model,
+                    chunks,
+                    time.perf_counter() - started,
+                    describe_error(exc),
+                )
+                logger.debug("chat: traceback", exc_info=True)
+                # Headers are already sent; abort so the client sees a broken stream.
+                raise RuntimeError("chat stream failed") from None
+            logger.info(
+                "chat: stream done model=%s chunks=%d total=%.2fs",
                 model,
                 chunks,
                 time.perf_counter() - started,
-                describe_error(exc),
             )
-            logger.debug("chat: traceback", exc_info=True)
-            # Headers are already sent; abort so the client sees a broken stream.
-            raise RuntimeError("chat stream failed") from None
-        logger.info(
-            "chat: stream done model=%s chunks=%d total=%.2fs",
-            model,
-            chunks,
-            time.perf_counter() - started,
-        )
-        _log_transcript(branch, reason, bot_turn, req.history[-1].text, "".join(parts))
+            finished = True
+        finally:
+            # Runs on success, an upstream failure, and a dropped connection alike, so a
+            # reply the person only partly saw is still recorded, marked partial.
+            _log_transcript(
+                branch,
+                reason,
+                bot_turn,
+                req.history[-1].text,
+                "".join(parts),
+                partial=not finished,
+            )
 
     return StreamingResponse(
         body(),

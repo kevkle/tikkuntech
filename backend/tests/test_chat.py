@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import pytest
@@ -7,9 +8,14 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from app.prompts.support_chat import (
     BRANCH_ADDENDA,
     CLOSING_INSTRUCTION,
+    CONTINUE_NOTE,
     FIXED_OPENING,
+    LISTEN_NOTE,
+    RETURN_TO_POST_NOTE,
+    build_menu_message,
 )
-from app.schemas import RouteVerdict
+from app.routers.chat import chat
+from app.schemas import ChatRequest, RouteVerdict
 
 
 def user(text):
@@ -238,6 +244,130 @@ def test_from_the_eighth_bot_message_on_the_reply_is_a_warm_close(
     assert CLOSING_INSTRUCTION in fake.calls[0][0].content
 
 
+# --- stages ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bot_turns,note",
+    [
+        (1, LISTEN_NOTE),  # bot message 2
+        (2, LISTEN_NOTE),  # bot message 3
+        (3, RETURN_TO_POST_NOTE),  # bot message 4
+        (5, CONTINUE_NOTE),  # bot message 6
+        (6, CONTINUE_NOTE),  # bot message 7
+    ],
+)
+def test_system_prompt_carries_the_stage_note_for_the_bot_turn(
+    client, set_chat, body, bot_turns, note
+):
+    fake = set_chat(FakeChat(["ok"]))
+    body["history"] = convo(bot_turns)
+    client.post("/chat", json=body)
+
+    system = fake.calls[0][0].content
+    assert note in system
+    for other in (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE):
+        if other != note:
+            assert other not in system
+
+
+def test_the_closing_turn_gets_no_stage_note(client, set_chat, body):
+    fake = set_chat(FakeChat(["ok"]))
+    body["history"] = convo(7)
+    client.post("/chat", json=body)
+
+    system = fake.calls[0][0].content
+    assert CLOSING_INSTRUCTION in system
+    for note in (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE):
+        assert note not in system
+
+
+def test_disengage_gets_no_stage_note_even_when_the_menu_is_skipped(
+    client, set_chat, router, body
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("disengage")
+    body["history"] = convo(4)  # bot message 5: menu skipped on disengage
+    client.post("/chat", json=body)
+
+    system = fake.calls[0][0].content
+    assert BRANCH_ADDENDA["disengage"] in system
+    for note in (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE):
+        assert note not in system
+
+
+# --- menu ------------------------------------------------------------------
+
+# The menu is the 5th bot message: the opening plus three replies come first.
+
+
+def test_fifth_bot_message_is_the_fixed_menu_message_without_the_chat_model(
+    client, set_chat, router, body
+):
+    fake = set_chat(FakeChat(["should not be used"]))
+    body["history"] = convo(4)
+    r = client.post("/chat", json=body)
+
+    assert r.status_code == 200
+    assert r.text == build_menu_message("a draft")
+    assert fake.calls == []
+    assert len(router.calls) == 1
+
+
+@pytest.mark.parametrize("branch", ["belief", "grievance", "joke", "mixed"])
+def test_menu_response_names_the_routed_branch_in_a_header(
+    client, router, body, branch
+):
+    router.result = route(branch)
+    body["history"] = convo(4)
+    r = client.post("/chat", json=body)
+
+    assert r.headers["x-chat-menu"] == branch
+
+
+def test_menu_response_keeps_the_no_buffering_headers(client, body):
+    body["history"] = convo(4)
+    r = client.post("/chat", json=body)
+
+    assert r.headers["content-type"].startswith("text/plain")
+    assert r.headers["cache-control"] == "no-cache"
+    assert r.headers["x-accel-buffering"] == "no"
+
+
+@pytest.mark.parametrize("bot_turns", [1, 3, 5, 6])
+def test_other_turns_are_not_the_menu(client, set_chat, body, bot_turns):
+    fake = set_chat(FakeChat(["ok"]))
+    body["history"] = convo(bot_turns)
+    r = client.post("/chat", json=body)
+
+    assert "x-chat-menu" not in r.headers
+    assert r.text == "ok"
+    assert len(fake.calls) == 1
+
+
+def test_disengage_skips_the_menu(client, set_chat, router, body):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("disengage")
+    body["history"] = convo(4)
+    r = client.post("/chat", json=body)
+
+    assert "x-chat-menu" not in r.headers
+    assert r.text == "ok"
+    assert len(fake.calls) == 1
+
+
+def test_menu_is_written_to_the_transcript(client, router, body, caplog):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    router.result = RouteVerdict(branch="belief", reason="sincere view")
+    body["history"] = convo(4)
+    client.post("/chat", json=body)
+
+    assert transcript_lines(caplog) == [
+        "transcript: branch=belief turn=5 reason='sincere view' "
+        f"user='user 3' bot={build_menu_message('a draft')!r}"
+    ]
+
+
 # --- transcript ------------------------------------------------------------
 
 
@@ -310,7 +440,7 @@ def test_transcript_stays_on_one_line_when_text_has_newlines(
     assert "user='a\\nb'" in line and "bot='one\\ntwo'" in line
 
 
-def test_transcript_is_not_written_when_the_stream_fails_midway(
+def test_transcript_keeps_the_streamed_text_as_partial_when_the_stream_fails_midway(
     client, set_chat, body, caplog
 ):
     caplog.set_level(logging.INFO, logger="app.transcript")
@@ -320,7 +450,40 @@ def test_transcript_is_not_written_when_the_stream_fails_midway(
     except Exception:
         pass  # an aborted stream may surface as an exception in the test client
 
-    assert transcript_lines(caplog) == []
+    (line,) = transcript_lines(caplog)
+    assert line.endswith("bot='onetwo' partial=True")
+
+
+def test_transcript_keeps_the_streamed_text_as_partial_when_the_client_disconnects(
+    set_chat, verdict, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(["one", "two", "three"]))
+    req = ChatRequest(
+        post="a draft", verdict=verdict, history=[{"role": "user", "text": "hello"}]
+    )
+
+    async def run():
+        response = await chat(req)
+        chunks = response.body_iterator
+        assert await anext(chunks) == "one"
+        await chunks.aclose()  # what a dropped connection does to the stream
+
+    asyncio.run(run())
+
+    (line,) = transcript_lines(caplog)
+    assert line.endswith("user='hello' bot='one' partial=True")
+
+
+def test_completed_transcript_lines_carry_no_partial_marker(
+    client, set_chat, body, caplog
+):
+    caplog.set_level(logging.INFO, logger="app.transcript")
+    set_chat(FakeChat(["all", " done"]))
+    client.post("/chat", json=body)
+
+    (line,) = transcript_lines(caplog)
+    assert "partial" not in line
 
 
 def test_transcript_is_not_written_when_the_chat_fails_to_start(
