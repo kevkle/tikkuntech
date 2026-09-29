@@ -172,6 +172,9 @@ export function InterventionModal({
         {/* Option menu: shown after the fixed menu message. All options carry equal weight. */}
         {showMenu && (
           <div className="px-6 pb-3">
+            <p className="mb-2 text-xs text-slate-400">
+              {"Whenever you're ready. It's your call."}
+            </p>
             <div className="flex flex-wrap gap-2">
               <button onClick={onClose} className={optionClass}>
                 Edit my post

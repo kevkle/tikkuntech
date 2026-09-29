@@ -66,6 +66,7 @@ export default function Page() {
         post,
         verdict,
         history,
+        menuBranch !== null,
         (delta) =>
           setMessages((prev) =>
             prev.map((m) => (m.id === aiId ? { ...m, text: m.text + delta } : m)),

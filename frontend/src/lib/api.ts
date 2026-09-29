@@ -27,6 +27,7 @@ export async function streamChat(
   post: string,
   verdict: Verdict,
   history: Message[],
+  menuShown: boolean,
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
 ): Promise<ChatResult> {
@@ -37,6 +38,8 @@ export async function streamChat(
       post,
       verdict,
       history: history.map(({ role, text }) => ({ role, text })),
+      // Tells the server the option buttons are already showing.
+      menu_shown: menuShown,
     }),
     signal,
   });
