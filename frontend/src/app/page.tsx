@@ -30,7 +30,14 @@ export default function Page() {
 
   const publish = (text: string) => {
     setPosts((prev) => [
-      { id: Date.now(), author: "You", handle: "@you", time: "now", text },
+      {
+        id: Date.now(),
+        author: "You",
+        handle: "@you",
+        time: "now",
+        text,
+        colorClass: "bg-slate-900 text-white",
+      },
       ...prev,
     ]);
     setDraft("");

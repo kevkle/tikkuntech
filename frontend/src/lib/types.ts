@@ -4,6 +4,8 @@ export type Post = {
   handle: string;
   time: string;
   text: string;
+  // Tailwind classes for the avatar circle (background and text color).
+  colorClass?: string;
 };
 
 export type Message = {
