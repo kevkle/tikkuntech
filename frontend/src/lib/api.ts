@@ -1,4 +1,11 @@
-import type { Message, Verdict } from "./types";
+import type { Branch, Message, Verdict } from "./types";
+
+const BRANCHES: readonly string[] = ["belief", "grievance", "joke", "mixed", "disengage"];
+
+export type ChatResult = {
+  // Set when the reply was the menu message: the branch decides which extras to offer.
+  menu: Branch | null;
+};
 
 export async function classifyPost(text: string): Promise<Verdict> {
   const res = await fetch("/api/classify", {
@@ -13,6 +20,7 @@ export async function classifyPost(text: string): Promise<Verdict> {
 /**
  * Streams the assistant's next reply as plain text chunks.
  * An empty `history` asks the server for the opening message.
+ * Resolves with `menu` set when the server marked this reply as the menu message.
  * Rejects on a non-200 response or a broken stream.
  */
 export async function streamChat(
@@ -21,7 +29,7 @@ export async function streamChat(
   history: Message[],
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
-): Promise<void> {
+): Promise<ChatResult> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -34,6 +42,9 @@ export async function streamChat(
   });
   if (!res.ok || !res.body) throw new Error(`chat failed: ${res.status}`);
 
+  const header = res.headers.get("x-chat-menu") ?? "";
+  const menu = BRANCHES.includes(header) ? (header as Branch) : null;
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   while (true) {
@@ -43,4 +54,5 @@ export async function streamChat(
   }
   const tail = decoder.decode();
   if (tail) onDelta(tail);
+  return { menu };
 }

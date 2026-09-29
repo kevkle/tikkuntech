@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { DUMMY_POSTS, MainFeed } from "@/components/MainFeed";
 import { InterventionModal } from "@/components/InterventionModal";
 import { classifyPost, streamChat } from "@/lib/api";
-import type { Message, Post, Verdict } from "@/lib/types";
+import type { Branch, Message, Post, Verdict } from "@/lib/types";
 
 /* ==========================================================================
    COMPONENT 3: App (Controller)
@@ -24,6 +24,8 @@ export default function Page() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  // Set once the server sends the menu message; the modal then shows the option buttons.
+  const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const nextId = useRef(0);
@@ -60,7 +62,7 @@ export default function Page() {
     setChatError(null);
 
     try {
-      await streamChat(
+      const { menu } = await streamChat(
         post,
         verdict,
         history,
@@ -70,6 +72,7 @@ export default function Page() {
           ),
         controller.signal,
       );
+      if (menu) setMenuBranch(menu);
     } catch (err) {
       if (controller.signal.aborted) return;
       console.error("chat failed:", err instanceof Error ? err.message : err);
@@ -120,6 +123,7 @@ export default function Page() {
     setIsStreaming(false);
     setMessages([]);
     setChatError(null);
+    setMenuBranch(null);
     setIsModalOpen(false);
     setPendingPost("");
     setPendingVerdict(null);
@@ -140,6 +144,7 @@ export default function Page() {
         messages={messages}
         isStreaming={isStreaming}
         chatError={chatError}
+        menuBranch={menuBranch}
         onSendMessage={handleSendMessage}
         onDeletePost={() => {
           setDraft("");

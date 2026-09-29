@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Message } from "@/lib/types";
+import { KIND_LABELS, MENU_EXTRAS, RESOURCES, type ResourceKind } from "@/lib/resources";
+import type { Branch, Message } from "@/lib/types";
 
 /* ==========================================================================
    COMPONENT 2: InterventionModal
@@ -10,6 +11,7 @@ import type { Message } from "@/lib/types";
      - `messages`        -> the conversation so far (assistant text streams in)
      - `isStreaming`     -> true while a reply is arriving; input is disabled
      - `chatError`       -> shown under the chat if a reply failed
+     - `menuBranch`      -> set once the menu message has arrived; shows the option buttons
      - `onSendMessage`   -> called with the user's reply text (typed or a quick reply)
      - `onDeletePost`, `onPublishAnyway` -> button handlers
      - `onClose` -> exit without deleting or publishing (back to editing)
@@ -23,6 +25,7 @@ type InterventionModalProps = {
   messages?: Message[];
   isStreaming?: boolean;
   chatError?: string | null;
+  menuBranch?: Branch | null;
   onSendMessage?: (text: string) => void;
   onDeletePost?: () => void;
   onPublishAnyway?: () => void;
@@ -34,17 +37,24 @@ export function InterventionModal({
   messages = [],
   isStreaming = false,
   chatError = null,
+  menuBranch = null,
   onSendMessage = () => {},
   onDeletePost = () => {},
   onPublishAnyway = () => {},
   onClose = () => {},
 }: InterventionModalProps) {
   const [input, setInput] = useState("");
+  const [openPanel, setOpenPanel] = useState<ResourceKind | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, chatError]);
+  }, [messages, chatError, menuBranch, openPanel]);
+
+  // A closed modal stays mounted, so forget which panel was open.
+  useEffect(() => {
+    if (!isOpen) setOpenPanel(null);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -59,6 +69,10 @@ export function InterventionModal({
   const openingArrived = last?.role === "ai" && last.text !== "";
   const showQuickReplies =
     openingArrived && !isStreaming && !messages.some((m) => m.role === "user");
+  const showMenu = menuBranch !== null && !isStreaming;
+  const extras = menuBranch ? MENU_EXTRAS[menuBranch] : [];
+  const optionClass =
+    "rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-200 backdrop-blur-md transition hover:border-indigo-300/50 hover:bg-white/15 hover:text-white";
 
   return (
     <div
@@ -147,11 +161,56 @@ export function InterventionModal({
               <button
                 key={label}
                 onClick={() => handleSend(label)}
-                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-200 backdrop-blur-md transition hover:border-indigo-300/50 hover:bg-white/15 hover:text-white"
+                className={optionClass}
               >
                 {label}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Option menu: shown after the fixed menu message. All options carry equal weight. */}
+        {showMenu && (
+          <div className="px-6 pb-3">
+            <div className="flex flex-wrap gap-2">
+              <button onClick={onClose} className={optionClass}>
+                Edit my post
+              </button>
+              <button onClick={onPublishAnyway} className={optionClass}>
+                Post it as is
+              </button>
+              {extras.map((kind) => (
+                <button
+                  key={kind}
+                  onClick={() => setOpenPanel(openPanel === kind ? null : kind)}
+                  aria-expanded={openPanel === kind}
+                  className={optionClass}
+                >
+                  {KIND_LABELS[kind]}
+                </button>
+              ))}
+            </div>
+            {openPanel && (
+              <div className="mt-3 space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                {RESOURCES[openPanel].map((r) => (
+                  <div key={r.title}>
+                    {r.url ? (
+                      <a
+                        href={r.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-indigo-300 underline"
+                      >
+                        {r.title}
+                      </a>
+                    ) : (
+                      <span className="font-semibold text-white">{r.title}</span>
+                    )}
+                    <p className="text-slate-300">{r.blurb}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
