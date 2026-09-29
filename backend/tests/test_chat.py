@@ -12,7 +12,6 @@ from app.prompts.support_chat import (
     FIXED_OPENING,
     LISTEN_NOTE,
     RETURN_TO_POST_NOTE,
-    build_menu_message,
 )
 from app.routers.chat import chat
 from app.schemas import ChatRequest, RouteVerdict
@@ -26,8 +25,8 @@ def ai(text):
     return {"role": "ai", "text": text}
 
 
-def route(branch):
-    return RouteVerdict(branch=branch, reason="x")
+def route(branch, ready=False):
+    return RouteVerdict(branch=branch, reason="x", ready=ready)
 
 
 def convo(bot_turns):
@@ -244,89 +243,110 @@ def test_from_the_eighth_bot_message_on_the_reply_is_a_warm_close(
     assert CLOSING_INSTRUCTION in fake.calls[0][0].content
 
 
-# --- stages ----------------------------------------------------------------
+# --- stages and the option menu ---------------------------------------------
+#
+# Bot message N is written after `convo(N - 1)`. The return to the post (and the
+# X-Chat-Menu header) happens when the router says the person is ready, from bot
+# message 3 on, and at the latest on bot message 6.
+
+ALL_NOTES = (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE)
 
 
-@pytest.mark.parametrize(
-    "bot_turns,note",
-    [
-        (1, LISTEN_NOTE),  # bot message 2
-        (2, LISTEN_NOTE),  # bot message 3
-        (3, RETURN_TO_POST_NOTE),  # bot message 4
-        (5, CONTINUE_NOTE),  # bot message 6
-        (6, CONTINUE_NOTE),  # bot message 7
-    ],
-)
-def test_system_prompt_carries_the_stage_note_for_the_bot_turn(
-    client, set_chat, body, bot_turns, note
-):
-    fake = set_chat(FakeChat(["ok"]))
-    body["history"] = convo(bot_turns)
-    client.post("/chat", json=body)
-
-    system = fake.calls[0][0].content
+def only_note(system, note):
     assert note in system
-    for other in (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE):
+    for other in ALL_NOTES:
         if other != note:
             assert other not in system
 
 
-def test_the_closing_turn_gets_no_stage_note(client, set_chat, body):
-    fake = set_chat(FakeChat(["ok"]))
-    body["history"] = convo(7)
-    client.post("/chat", json=body)
-
-    system = fake.calls[0][0].content
-    assert CLOSING_INSTRUCTION in system
-    for note in (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE):
-        assert note not in system
-
-
-def test_disengage_gets_no_stage_note_even_when_the_menu_is_skipped(
-    client, set_chat, router, body
+@pytest.mark.parametrize("bot_turns", [1, 2, 3, 4])
+def test_not_ready_keeps_listening_without_the_menu(
+    client, set_chat, router, body, bot_turns
 ):
     fake = set_chat(FakeChat(["ok"]))
-    router.result = route("disengage")
-    body["history"] = convo(4)  # bot message 5: menu skipped on disengage
-    client.post("/chat", json=body)
-
-    system = fake.calls[0][0].content
-    assert BRANCH_ADDENDA["disengage"] in system
-    for note in (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE):
-        assert note not in system
-
-
-# --- menu ------------------------------------------------------------------
-
-# The menu is the 5th bot message: the opening plus three replies come first.
-
-
-def test_fifth_bot_message_is_the_fixed_menu_message_without_the_chat_model(
-    client, set_chat, router, body
-):
-    fake = set_chat(FakeChat(["should not be used"]))
-    body["history"] = convo(4)
+    router.result = route("grievance", ready=False)
+    body["history"] = convo(bot_turns)  # bot messages 2 to 5
     r = client.post("/chat", json=body)
 
-    assert r.status_code == 200
-    assert r.text == build_menu_message("a draft")
-    assert fake.calls == []
-    assert len(router.calls) == 1
+    only_note(fake.calls[0][0].content, LISTEN_NOTE)
+    assert "x-chat-menu" not in r.headers
+
+
+@pytest.mark.parametrize("bot_turns", [2, 3, 4])
+def test_ready_returns_to_the_post_and_shows_the_menu(
+    client, set_chat, router, body, bot_turns
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("grievance", ready=True)
+    body["history"] = convo(bot_turns)  # bot messages 3 to 5
+    r = client.post("/chat", json=body)
+
+    assert len(fake.calls) == 1  # a normal model reply, not a fixed message
+    only_note(fake.calls[0][0].content, RETURN_TO_POST_NOTE)
+    assert r.text == "ok"
+    assert r.headers["x-chat-menu"] == "grievance"
+
+
+def test_ready_on_the_second_bot_message_is_too_early(client, set_chat, router, body):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("grievance", ready=True)
+    body["history"] = convo(1)  # bot message 2
+    r = client.post("/chat", json=body)
+
+    only_note(fake.calls[0][0].content, LISTEN_NOTE)
+    assert "x-chat-menu" not in r.headers
+
+
+def test_the_fallback_opens_the_menu_on_bot_message_six_even_if_not_ready(
+    client, set_chat, router, body
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("joke", ready=False)
+    body["history"] = convo(5)  # bot message 6
+    r = client.post("/chat", json=body)
+
+    only_note(fake.calls[0][0].content, RETURN_TO_POST_NOTE)
+    assert r.headers["x-chat-menu"] == "joke"
+
+
+def test_the_message_before_the_fallback_still_waits(client, set_chat, router, body):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("joke", ready=False)
+    body["history"] = convo(4)  # bot message 5
+    r = client.post("/chat", json=body)
+
+    only_note(fake.calls[0][0].content, LISTEN_NOTE)
+    assert "x-chat-menu" not in r.headers
+
+
+@pytest.mark.parametrize("ready", [False, True])
+def test_once_the_menu_is_shown_replies_continue_and_keep_the_header(
+    client, set_chat, router, body, ready
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("belief", ready=ready)
+    body["history"] = convo(3)  # bot message 4
+    body["menu_shown"] = True
+    r = client.post("/chat", json=body)
+
+    only_note(fake.calls[0][0].content, CONTINUE_NOTE)
+    assert r.headers["x-chat-menu"] == "belief"
 
 
 @pytest.mark.parametrize("branch", ["belief", "grievance", "joke", "mixed"])
-def test_menu_response_names_the_routed_branch_in_a_header(
-    client, router, body, branch
-):
-    router.result = route(branch)
-    body["history"] = convo(4)
+def test_menu_header_names_the_routed_branch(client, set_chat, router, body, branch):
+    set_chat(FakeChat(["ok"]))
+    router.result = route(branch, ready=True)
+    body["history"] = convo(3)
     r = client.post("/chat", json=body)
 
     assert r.headers["x-chat-menu"] == branch
 
 
-def test_menu_response_keeps_the_no_buffering_headers(client, body):
-    body["history"] = convo(4)
+def test_menu_reply_keeps_the_no_buffering_headers(client, set_chat, router, body):
+    set_chat(FakeChat(["ok"]))
+    router.result = route("mixed", ready=True)
+    body["history"] = convo(3)
     r = client.post("/chat", json=body)
 
     assert r.headers["content-type"].startswith("text/plain")
@@ -334,38 +354,53 @@ def test_menu_response_keeps_the_no_buffering_headers(client, body):
     assert r.headers["x-accel-buffering"] == "no"
 
 
-@pytest.mark.parametrize("bot_turns", [1, 3, 5, 6])
-def test_other_turns_are_not_the_menu(client, set_chat, body, bot_turns):
+def test_disengage_never_gets_a_stage_note_or_the_menu(client, set_chat, router, body):
     fake = set_chat(FakeChat(["ok"]))
-    body["history"] = convo(bot_turns)
+    router.result = route("disengage", ready=True)
+    body["history"] = convo(5)  # past the fallback
+    body["menu_shown"] = True
     r = client.post("/chat", json=body)
 
+    system = fake.calls[0][0].content
+    assert BRANCH_ADDENDA["disengage"] in system
+    assert not any(note in system for note in ALL_NOTES)
     assert "x-chat-menu" not in r.headers
-    assert r.text == "ok"
-    assert len(fake.calls) == 1
 
 
-def test_disengage_skips_the_menu(client, set_chat, router, body):
+def test_the_closing_turn_has_no_stage_note_but_keeps_the_menu(
+    client, set_chat, body
+):
     fake = set_chat(FakeChat(["ok"]))
-    router.result = route("disengage")
-    body["history"] = convo(4)
+    body["history"] = convo(7)  # bot message 8
+    body["menu_shown"] = True
     r = client.post("/chat", json=body)
 
+    system = fake.calls[0][0].content
+    assert CLOSING_INSTRUCTION in system
+    assert not any(note in system for note in ALL_NOTES)
+    assert "x-chat-menu" in r.headers
+
+
+def test_a_router_failure_counts_as_not_ready(client, set_chat, router, body):
+    fake = set_chat(FakeChat(["ok"]))
+    router.exc = RuntimeError("router down")
+    body["history"] = convo(3)  # bot message 4
+    r = client.post("/chat", json=body)
+
+    only_note(fake.calls[0][0].content, LISTEN_NOTE)
     assert "x-chat-menu" not in r.headers
-    assert r.text == "ok"
-    assert len(fake.calls) == 1
 
 
-def test_menu_is_written_to_the_transcript(client, router, body, caplog):
-    caplog.set_level(logging.INFO, logger="app.transcript")
-    router.result = RouteVerdict(branch="belief", reason="sincere view")
-    body["history"] = convo(4)
+def test_the_phase_is_logged_without_any_text(client, set_chat, router, body, caplog):
+    caplog.set_level(logging.INFO, logger="app.chat")
+    set_chat(FakeChat(["ok"]))
+    router.result = route("grievance", ready=True)
+    body["history"] = convo(3)
     client.post("/chat", json=body)
 
-    assert transcript_lines(caplog) == [
-        "transcript: branch=belief turn=5 reason='sincere view' "
-        f"user='user 3' bot={build_menu_message('a draft')!r}"
-    ]
+    lines = [r.getMessage() for r in caplog.records if r.name == "app.chat"]
+    assert "chat: phase=return ready=True turn=4 menu_shown=False" in lines
+    assert not any("user 2" in line or "a draft" in line for line in lines)
 
 
 # --- transcript ------------------------------------------------------------
@@ -380,7 +415,7 @@ def test_transcript_logs_branch_turn_reason_user_message_and_full_bot_reply(
 ):
     caplog.set_level(logging.INFO, logger="app.transcript")
     set_chat(FakeChat(["Hel", "lo"]))
-    router.result = RouteVerdict(branch="grievance", reason="feels wronged")
+    router.result = RouteVerdict(branch="grievance", reason="feels wronged", ready=False)
     body["history"] = [ai(FIXED_OPENING), user("i am angry")]
     client.post("/chat", json=body)
 

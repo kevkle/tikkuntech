@@ -14,7 +14,9 @@ POST = f"you are awful {MARKER}"
 
 @pytest.fixture(autouse=True)
 def router(no_real_llm, set_router):
-    return set_router(FakeClassifier(RouteVerdict(branch="mixed", reason="x")))
+    return set_router(
+        FakeClassifier(RouteVerdict(branch="mixed", reason="x", ready=False))
+    )
 
 
 def text_outside_transcript(caplog):
@@ -186,30 +188,12 @@ def test_chat_text_is_only_logged_by_the_transcript_logger(
     assert len(transcript) == 1 and MARKER in transcript[0]
 
 
-def test_menu_message_quotes_the_post_only_on_the_transcript_logger(
-    client, verdict_json, caplog
-):
-    caplog.set_level(logging.DEBUG)
-    history = []
-    for i in range(4):
-        history += [
-            {"role": "ai", "text": f"bot {i}"},
-            {"role": "user", "text": f"user {i}"},
-        ]
-    r = client.post("/chat", json=chat_body(verdict_json, history))
-
-    assert MARKER in r.text  # the fixed menu message quotes the post
-    assert MARKER not in text_outside_transcript(caplog)
-    transcript = [r.getMessage() for r in caplog.records if r.name == "app.transcript"]
-    assert len(transcript) == 1 and MARKER in transcript[0]
-
-
 def test_router_reason_is_only_logged_by_the_transcript_logger(
     client, set_chat, router, verdict_json, caplog
 ):
     caplog.set_level(logging.DEBUG)
     set_chat(FakeChat(["ok"]))
-    router.result = RouteVerdict(branch="joke", reason=f"quotes {MARKER}")
+    router.result = RouteVerdict(branch="joke", reason=f"quotes {MARKER}", ready=False)
     client.post("/chat", json=chat_body(verdict_json))
 
     assert "chat: routed branch=joke" in caplog.text

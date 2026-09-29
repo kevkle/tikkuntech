@@ -46,13 +46,23 @@ def test_verdict_requires_all_fields():
     "branch", ["belief", "grievance", "joke", "mixed", "disengage"]
 )
 def test_route_verdict_accepts_every_branch(branch):
-    assert RouteVerdict(branch=branch, reason="x").branch == branch
+    assert RouteVerdict(branch=branch, reason="x", ready=False).branch == branch
 
 
 @pytest.mark.parametrize("branch", ["angry", "unclear", "crisis"])
 def test_route_verdict_rejects_unknown_branch(branch):
     with pytest.raises(ValidationError):
-        RouteVerdict(branch=branch, reason="x")
+        RouteVerdict(branch=branch, reason="x", ready=False)
+
+
+def test_route_verdict_requires_ready():
+    with pytest.raises(ValidationError):
+        RouteVerdict(branch="joke", reason="x")
+
+
+@pytest.mark.parametrize("ready", [True, False])
+def test_route_verdict_keeps_ready(ready):
+    assert RouteVerdict(branch="joke", reason="x", ready=ready).ready is ready
 
 
 def test_route_verdict_requires_all_fields():
@@ -79,6 +89,14 @@ def test_classify_request_accepts_limits(text):
 
 def test_chat_request_allows_empty_history():
     assert ChatRequest(**chat_dict()).history == []
+
+
+def test_chat_request_menu_shown_defaults_to_false():
+    assert ChatRequest(**chat_dict()).menu_shown is False
+
+
+def test_chat_request_accepts_menu_shown():
+    assert ChatRequest(**chat_dict(menu_shown=True)).menu_shown is True
 
 
 def test_chat_history_ending_with_user_is_valid():

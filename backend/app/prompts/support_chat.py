@@ -1,3 +1,5 @@
+from typing import Literal
+
 from app.schemas import Branch, Verdict
 
 CONTEXT_TAG = "flagged_post_context"
@@ -100,50 +102,39 @@ explicitly asked to stop. Close politely in one or two sentences without arguing
 and say you are happy to talk if they want a real conversation.""",
 }
 
-# Stage guidance, chosen by the number of the bot message being written (the fixed
-# opening is message 1). Topic-neutral on purpose: it works for any post.
+# Stage guidance, chosen by the conversation phase the server works out each turn.
+# Topic-neutral on purpose: it works for any post.
+Phase = Literal["listen", "return", "continue"]
+
 LISTEN_NOTE = """\
 Stage guidance: keep listening, and add something new. Pick up a specific word or \
 detail the person used and ask about it. Do not restate a reflection you already \
-gave, and do not ask a feeling question you already asked."""
+gave, and do not ask a feeling question you already asked. Do not bring the original \
+post back up yourself yet."""
 
 RETURN_TO_POST_NOTE = """\
 Stage guidance: go back to the original post. Using the draft post in the context \
-block, quote or paraphrase the person's own words and ask, as "help me understand", \
-what those words were doing for the feeling, or how they connect to it. Stay in \
-emotional terms only. Do not argue, and do not ask about blame, politics, or what \
-should happen. Ask one question."""
+block, connect it to what the person just said: quote or paraphrase their own words \
+and ask, as "help me understand", what those words were doing for the feeling, or \
+how they connect to it. Stay in emotional terms only. Do not argue, and do not ask \
+about blame, politics, or what should happen. Ask one question. The interface \
+already shows the person their options, so do not list them or mention buttons."""
 
 CONTINUE_NOTE = """\
 Stage guidance: follow the person's lead and add something new. Do not repeat an \
-earlier reflection or question."""
+earlier reflection or question. The interface already shows the person their \
+options, so do not list them or mention buttons."""
+
+_NOTES: dict[Phase, str] = {
+    "listen": LISTEN_NOTE,
+    "return": RETURN_TO_POST_NOTE,
+    "continue": CONTINUE_NOTE,
+}
 
 
-def stage_note(turn: int | None) -> str | None:
-    """Stage guidance for bot message `turn`, or None before the first model reply."""
-    if turn is None or turn < 2:
-        return None
-    if turn <= 3:
-        return LISTEN_NOTE
-    if turn == 4:
-        return RETURN_TO_POST_NOTE
-    return CONTINUE_NOTE
-
-
-# The quoted post is capped so a long draft cannot swamp the menu message.
-MENU_POST_MAX_CHARS = 200
-
-
-def build_menu_message(post: str) -> str:
-    """Fixed message that returns to the post before the option buttons: no model call."""
-    quote = " ".join(post.split())
-    if len(quote) > MENU_POST_MAX_CHARS:
-        quote = quote[:MENU_POST_MAX_CHARS].rstrip() + "..."
-    return (
-        f'Before we wrap up, here is what you wrote: "{quote}". '
-        "Our system flagged it. It is entirely your call, whatever you choose. "
-        "What feels right to you?"
-    )
+def stage_note(phase: Phase | None) -> str | None:
+    """Stage guidance for the phase, or None when there is no phase."""
+    return _NOTES.get(phase) if phase else None
 
 
 CLOSING_INSTRUCTION = """\
@@ -157,13 +148,13 @@ def build_system_prompt(
     verdict: Verdict,
     branch: Branch = "mixed",
     closing: bool = False,
-    turn: int | None = None,
+    phase: Phase | None = None,
 ) -> str:
     # Strip the closing tag from user text so a post cannot break out of the block.
     safe_post = post.replace(f"</{CONTEXT_TAG}>", "")
     sections = [SUPPORT_CHAT_SYSTEM_PROMPT, BRANCH_ADDENDA[branch]]
     # The close and the disengage branch have their own instructions, so no stage note.
-    note = None if closing or branch == "disengage" else stage_note(turn)
+    note = None if closing or branch == "disengage" else stage_note(phase)
     if note:
         sections.append(note)
     if closing:

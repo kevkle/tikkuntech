@@ -9,11 +9,7 @@ from app.config import load_settings
 from app.llm import get_chat_llm, get_router_llm
 from app.logging_config import describe_error
 from app.prompts.router import ROUTER_SYSTEM_PROMPT, build_router_input
-from app.prompts.support_chat import (
-    FIXED_OPENING,
-    build_menu_message,
-    build_system_prompt,
-)
+from app.prompts.support_chat import FIXED_OPENING, Phase, build_system_prompt
 from app.schemas import Branch, ChatRequest, RouteVerdict
 
 logger = logging.getLogger("app.chat")
@@ -24,8 +20,10 @@ router = APIRouter()
 
 # The fixed opening is bot message 1, so the 8th bot message is the warm close.
 MAX_BOT_TURNS = 8
-# The 5th bot message returns to the post and shows the option buttons.
-MENU_TURN = 5
+# The return to the post (and the option buttons) happens when the router says the person
+# is ready, from bot message MENU_MIN_TURN on, and at the latest on MENU_FALLBACK_TURN.
+MENU_MIN_TURN = 3
+MENU_FALLBACK_TURN = 6
 FALLBACK_REASON = "fallback: router unavailable"
 STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
@@ -61,17 +59,28 @@ def _log_transcript(
     )
 
 
-def _static(text: str, headers: dict[str, str] | None = None) -> StreamingResponse:
+def _static(text: str) -> StreamingResponse:
     """A fixed reply, streamed like a model reply so the client reads it the same way."""
     return StreamingResponse(
         iter([text]),
         media_type="text/plain; charset=utf-8",
-        headers={**STREAM_HEADERS, **(headers or {})},
+        headers=STREAM_HEADERS,
     )
 
 
-async def _route(req: ChatRequest) -> tuple[Branch, str]:
-    """Pick the branch and the router's reason for the latest reply; 'mixed' if routing fails."""
+def _phase(branch: Branch, ready: bool, bot_turn: int, menu_shown: bool) -> Phase | None:
+    """Where the conversation is: listening, returning to the post, or past that."""
+    if branch == "disengage":
+        return None
+    if menu_shown:
+        return "continue"
+    if bot_turn >= MENU_MIN_TURN and (ready or bot_turn >= MENU_FALLBACK_TURN):
+        return "return"
+    return "listen"
+
+
+async def _route(req: ChatRequest) -> tuple[Branch, bool, str]:
+    """Pick the branch, readiness and the router's reason; 'mixed', not ready if routing fails."""
     started = time.perf_counter()
     try:
         verdict = await get_router_llm().ainvoke(
@@ -87,19 +96,20 @@ async def _route(req: ChatRequest) -> tuple[Branch, str]:
             describe_error(exc),
         )
         logger.debug("chat: traceback", exc_info=True)
-        return "mixed", FALLBACK_REASON
+        return "mixed", False, FALLBACK_REASON
     if not isinstance(verdict, RouteVerdict):
         logger.warning(
             "chat: router returned unexpected type=%s, using mixed",
             type(verdict).__name__,
         )
-        return "mixed", FALLBACK_REASON
+        return "mixed", False, FALLBACK_REASON
     logger.info(
-        "chat: routed branch=%s latency=%.2fs",
+        "chat: routed branch=%s ready=%s latency=%.2fs",
         verdict.branch,
+        verdict.ready,
         time.perf_counter() - started,
     )
-    return verdict.branch, verdict.reason
+    return verdict.branch, verdict.ready, verdict.reason
 
 
 @router.post("/chat")
@@ -117,13 +127,20 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         _log_transcript("opening", None, 1, None, FIXED_OPENING)
         return _static(FIXED_OPENING)
 
-    branch, reason = await _route(req)
+    branch, ready, reason = await _route(req)
     bot_turn = sum(m.role == "ai" for m in req.history) + 1
-
-    if bot_turn == MENU_TURN and branch != "disengage":
-        menu = build_menu_message(req.post)
-        _log_transcript(branch, reason, bot_turn, req.history[-1].text, menu)
-        return _static(menu, {"X-Chat-Menu": branch})
+    phase = _phase(branch, ready, bot_turn, req.menu_shown)
+    logger.info(
+        "chat: phase=%s ready=%s turn=%d menu_shown=%s",
+        phase,
+        ready,
+        bot_turn,
+        req.menu_shown,
+    )
+    # From the return to the post on, tell the client to show the option buttons.
+    headers = dict(STREAM_HEADERS)
+    if phase in ("return", "continue"):
+        headers["X-Chat-Menu"] = branch
 
     model = settings.chat_model
     turns = len(req.history)
@@ -132,7 +149,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         req.verdict,
         branch,
         closing=bot_turn >= MAX_BOT_TURNS,
-        turn=bot_turn,
+        phase=phase,
     )
     messages = [SystemMessage(content=system)]
     for m in req.history:
@@ -213,5 +230,5 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     return StreamingResponse(
         body(),
         media_type="text/plain; charset=utf-8",
-        headers=STREAM_HEADERS,
+        headers=headers,
     )
