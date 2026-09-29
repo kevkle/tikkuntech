@@ -36,6 +36,17 @@ docker compose up --build
 
 After changing `requirements.txt` or `package.json`, rebuild. For the frontend, use `docker compose up --build -V` so the container's `node_modules` volume is refreshed.
 
+## Tests
+
+Backend tests are offline: the LLM is mocked, so they need no API key and cost nothing. They run in the host venv:
+
+```
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pytest
+```
+
 ## Status
 
 Phases 1 (scaffold), 2 (classifier and Post-click flow) and 3 (streaming supportive chat) are implemented. Tests are still to do.
