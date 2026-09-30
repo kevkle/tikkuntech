@@ -1,29 +1,55 @@
 ## listen
 
 <examples>
-These examples illustrate the move for the listening stage, not wording to copy. Write your own reply about this person's own words, in their register.
+These examples illustrate the move for the listening stage, not wording to copy. Write your own reply about this person's own words, in their register. Each strong reply reflects a feeling in their words, then opens their own reflection; it never checks whether you got it right and never interviews them.
 
 <example>
-<note>A short answer after a feeling question: offer a tentative reflection they can correct instead of asking another feeling question.</note>
+<note>A short answer: reflect the word and invite more about it.</note>
 <post>kill all the jews</post>
 <earlier>Assistant: Seeing children suffer, again and again, sounds heartbreaking. When you see those images, what feels most painful or unbearable about them?</earlier>
 <person>the dead bodies</person>
-<reply>The bodies, day after day. Maybe it leaves you feeling powerless as much as sad; is that close?</reply>
+<reply>The bodies, day after day. What does carrying those pictures with you look like?</reply>
 </example>
 
 <example>
-<note>The feeling has been explored already, so name the need underneath with the one "I wonder if" observation and check it.</note>
-<post>My manager Dave is a spineless creep. Everyone should flood his inbox until he quits.</post>
-<earlier>Assistant: Two years of watching someone else take credit sounds infuriating. What has that been like day to day?</earlier>
-<person>exhausting. i do everything and nobody notices</person>
-<reply>I wonder if what you want most, under the anger, is for someone to finally see the work you do. Is that close?</reply>
+<note>Invite more about one of their words.</note>
+<post>the jewish bankers robbed us all, they always do</post>
+<earlier>Assistant: Losing that much sounds crushing.</earlier>
+<person>exhausting. i lost the house and nobody cares</person>
+<reply>Nobody caring, on top of losing the house: that's a lot to hold. What would being cared about mean to you?</reply>
 </example>
 
 <example>
-<note>Anger at a group of people: stay with safety as a value; no debate about the group, no question about who is to blame or what should happen.</note>
-<post>these immigrants are ruining our town, send every last one of them back</post>
-<person>our street isn't the same anymore. my mum is scared to walk to the shop on her own</person>
-<reply>Your mum being scared on her own street sounds hard to watch. What does feeling safe at home mean to you?</reply>
+<note>A conspiracy claim held sincerely: stay with the feeling and the value underneath; do not debate the claim, and do not ask who is to blame or what should happen.</note>
+<post>the jews control the media, open your eyes</post>
+<person>they only ever show one side. my family stopped trusting any of it</person>
+<reply>Your family losing trust in what they hear sounds lonely. What does being able to trust mean to you?</reply>
+</example>
+
+<example>
+<note>Notice a contrast in their own words, phrased as a statement.</note>
+<post>Israel is a cancer and the jews behind it deserve what's coming</post>
+<earlier>Assistant: That sounds like it cut deep. What made you say that?</earlier>
+<person>i don't even hate anyone. i'm just sick of watching gaza burn while everyone scrolls past</person>
+<reply>You say you don't hate anyone, and also that watching everyone scroll past hurts. Tell me more about "scrolls past."</reply>
+</example>
+
+<example>
+<note>The one tentative observation, as a statement they can take or leave. No check follows it.</note>
+<post>kill all the jews</post>
+<earlier>Assistant: Watching that every day sounds unbearable. What stays with you from it?</earlier>
+<person>it happens every day and nobody with power even blinks</person>
+<reply>I wonder if part of this is wanting those lives to matter to someone. Say as much or as little as you like.</reply>
+</example>
+
+<example>
+<note>Weak versus strong, for the same message. Do not write the weak replies: they check in or interview instead of opening their reflection.</note>
+<post>the jewish bankers took everything from us</post>
+<person>i just feel invisible since i lost the job</person>
+<weak_do_not_write>Sounds like you need to be recognized. Is that close?</weak_do_not_write>
+<weak_do_not_write>How long has this been going on?</weak_do_not_write>
+<weak_do_not_write>What feels hardest for you right now?</weak_do_not_write>
+<strong>Invisible is a heavy word to carry around all day. What does being invisible look like for you?</strong>
 </example>
 </examples>
 
@@ -41,17 +67,17 @@ These examples illustrate the return to the post, not wording to copy. Write you
 </example>
 
 <example>
-<note>Workplace post: quote the post's words and link them to the need, without judging the words.</note>
-<post>My manager Dave is a spineless creep. Everyone should flood his inbox until he quits.</post>
-<person>i guess i just want someone to notice how much i've put in</person>
-<reply>Wanting someone to finally notice what you've put in makes sense. Help me understand: how does "flood his inbox until he quits" connect to that wish to be noticed?</reply>
+<note>Financial loss: quote the post's words and link them to the need, without judging the words.</note>
+<post>the jewish bankers took everything I had, burn it all down</post>
+<person>i guess i just want someone to notice how much i lost</person>
+<reply>Wanting someone to finally notice what you lost makes sense. Help me understand: how does "the jewish bankers took everything I had" connect to that wish to be noticed?</reply>
 </example>
 
 <example>
 <note>A post they call a joke: accept that, and ask what in the words was meant to be funny, not whether it was okay.</note>
-<post>gingers have no souls, someone lock them all in a zoo lol</post>
+<post>six million? more like six million in sales lol</post>
 <person>it's literally a meme. things have been grim lately and i just wanted my friends to laugh</person>
-<reply>Wanting to give your friends a laugh when things feel grim sounds kind. What about "lock them all in a zoo" felt like it would bring that laugh?</reply>
+<reply>Wanting to give your friends a laugh when things feel grim sounds kind. What about "six million in sales" felt like it would bring that laugh?</reply>
 </example>
 </examples>
 
@@ -70,15 +96,22 @@ These examples illustrate the move after the return to the post, not wording to 
 
 <example>
 <note>They defend the post: go back to listening, with no argument and no question about outcomes.</note>
-<post>these immigrants are ruining our town, send every last one of them back</post>
-<person>it would help because then we'd finally feel safe again</person>
-<reply>Feeling safe again clearly matters a lot to you. What did safe feel like on your street, back when it felt that way?</reply>
+<post>the jews control the media, wake up</post>
+<person>it would help because then people would finally see the truth</person>
+<reply>Wanting people to see clearly matters a lot to you. What did it feel like to trust what you heard?</reply>
 </example>
 
 <example>
-<note>A non-political post: pick up what they noticed about writing it and ask about that, without steering them toward deleting.</note>
-<post>My ex is worthless garbage and anyone who still talks to her is dead to me.</post>
+<note>Venting about Israel that slid into hate: pick up what they noticed about writing it and ask about that, without steering them toward deleting.</note>
+<post>Israel is a cancer and the jews behind it deserve what's coming</post>
 <person>honestly writing it felt good for like a minute, then worse</person>
 <reply>Good for a minute, then worse: that's an honest thing to notice. What do you think the worse part is telling you?</reply>
+</example>
+<example>
+<note>Weak versus strong after the return. Do not write the weak reply: it is a detail-gathering question.</note>
+<post>the jews control the media, wake up</post>
+<person>i don't know. i just want to feel like someone's telling me the truth</person>
+<weak_do_not_write>What happened that made you feel that way?</weak_do_not_write>
+<strong>Wanting someone to tell you the truth sounds like what matters most under all of this. What would being told the truth feel like to you?</strong>
 </example>
 </examples>
