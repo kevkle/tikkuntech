@@ -1,16 +1,34 @@
 from typing import Literal, get_args
 
-from app.prompts.loader import load_prompt, load_sections
-from app.schemas import Branch, Verdict
+from app.prompts.loader import load_prompt, load_sections, localized_path
+from app.schemas import Branch, Language, Verdict
 
 CONTEXT_TAG = "flagged_post_context"
 
-# The first message is fixed, so no model call is needed to start the chat.
-FIXED_OPENING = "What made you say that?"
-
 # The prompt text lives in plain files under chat/ so it can be edited without touching
-# Python: base.md, branches.md, stages.md, examples.md and closing.md. The last three
-# split into one "## name" section per branch or phase.
+# Python: base.md, branches.md, stages.md, examples.md, closing.md and opening.md. The
+# branches, stages and examples files split into one "## name" section per branch or phase.
+# The opening, examples and closing are also written per language under
+# chat/locales/<language>/, and the English file stands in for any that are missing.
+LANGUAGES: tuple[Language, ...] = get_args(Language)
+LANGUAGE_NAMES: dict[Language, str] = {
+    "en": "English",
+    "ar": "Arabic",
+    "fr": "French",
+    "de": "German",
+}
+
+# The first message is fixed, so no model call is needed to start the chat.
+OPENINGS: dict[Language, str] = {
+    language: load_prompt(localized_path("chat/opening.md", language)) for language in LANGUAGES
+}
+FIXED_OPENING = OPENINGS["en"]
+
+
+def opening_for(language: Language) -> str:
+    return OPENINGS[language]
+
+
 SUPPORT_CHAT_SYSTEM_PROMPT = load_prompt("chat/base.md")
 
 # One addendum per branch. "mixed" is also the default when the router cannot decide.
@@ -32,8 +50,15 @@ _NOTES: dict[Phase, str] = {
 }
 
 # Worked examples for each phase, appended after its stage note (empty section = none).
-_EXAMPLE_SECTIONS = load_sections("chat/examples.md")
-EXAMPLES: dict[Phase, str] = {phase: _EXAMPLE_SECTIONS[phase] for phase in get_args(Phase)}
+def _examples(language: Language) -> dict[Phase, str]:
+    sections = load_sections(localized_path("chat/examples.md", language))
+    return {phase: sections[phase] for phase in get_args(Phase)}
+
+
+EXAMPLES: dict[Phase, str] = _examples("en")
+EXAMPLES_BY_LANGUAGE: dict[Language, dict[Phase, str]] = {
+    language: EXAMPLES if language == "en" else _examples(language) for language in LANGUAGES
+}
 
 
 def stage_note(phase: Phase | None) -> str | None:
@@ -41,7 +66,17 @@ def stage_note(phase: Phase | None) -> str | None:
     return _NOTES.get(phase) if phase else None
 
 
-CLOSING_INSTRUCTION = load_prompt("chat/closing.md")
+CLOSINGS: dict[Language, str] = {
+    language: load_prompt(localized_path("chat/closing.md", language)) for language in LANGUAGES
+}
+CLOSING_INSTRUCTION = CLOSINGS["en"]
+
+
+def reply_language_note(language: Language) -> str:
+    return (
+        f"Respond in {LANGUAGE_NAMES[language]}, idiomatic as a native speaker would write it "
+        "and in the language's own script. The rules above apply unchanged."
+    )
 
 
 def build_system_prompt(
@@ -51,22 +86,27 @@ def build_system_prompt(
     closing: bool = False,
     phase: Phase | None = None,
     user_name: str | None = None,
+    language: Language = "en",
 ) -> str:
     # Strip the closing tag from user text so a post cannot break out of the block.
     safe_post = post.replace(f"</{CONTEXT_TAG}>", "")
     # The name goes on one line, so collapse any newlines and drop the closing tag too.
     safe_name = " ".join((user_name or "").replace(f"</{CONTEXT_TAG}>", "").split())
     name_line = f"Person's name: {safe_name}\n" if safe_name else ""
-    sections = [SUPPORT_CHAT_SYSTEM_PROMPT, BRANCH_ADDENDA[branch]]
+    sections = [
+        SUPPORT_CHAT_SYSTEM_PROMPT,
+        reply_language_note(language),
+        BRANCH_ADDENDA[branch],
+    ]
     # The close and the disengage branch have their own instructions, so no stage note.
     note = None if closing or branch == "disengage" else stage_note(phase)
     if note:
         sections.append(note)
-        examples = EXAMPLES.get(phase)
+        examples = EXAMPLES_BY_LANGUAGE[language].get(phase)
         if examples:
             sections.append(examples)
     if closing:
-        sections.append(CLOSING_INSTRUCTION)
+        sections.append(CLOSINGS[language])
     return (
         "\n\n".join(sections)
         + "\n\n"

@@ -11,6 +11,7 @@ from app.prompts.support_chat import (
     CONTINUE_NOTE,
     FIXED_OPENING,
     LISTEN_NOTE,
+    OPENINGS,
     RETURN_TO_POST_NOTE,
 )
 from app.routers.chat import chat
@@ -93,6 +94,31 @@ def test_empty_history_returns_the_fixed_opening_without_calling_any_model(
     assert r.text == FIXED_OPENING
     assert fake.calls == []
     assert router.calls == []
+
+
+def test_opening_is_in_the_requested_language(client, monkeypatch, body):
+    monkeypatch.setitem(OPENINGS, "fr", "Qu'est-ce qui t'a fait dire ca ?")
+    body["history"] = []
+    body["language"] = "fr"
+    assert client.post("/chat", json=body).text == "Qu'est-ce qui t'a fait dire ca ?"
+
+
+def test_the_requested_language_reaches_the_system_prompt(client, set_chat, body):
+    fake = set_chat(FakeChat(["ok"]))
+    body["language"] = "de"
+    client.post("/chat", json=body)
+    assert "Respond in German" in fake.calls[0][0].content
+
+
+def test_the_language_defaults_to_english_in_the_system_prompt(client, set_chat, body):
+    fake = set_chat(FakeChat(["ok"]))
+    client.post("/chat", json=body)
+    assert "Respond in English" in fake.calls[0][0].content
+
+
+def test_an_unsupported_language_is_422(client, body):
+    body["language"] = "he"
+    assert client.post("/chat", json=body).status_code == 422
 
 
 def test_fixed_opening_keeps_the_no_buffering_headers(client, body):

@@ -6,13 +6,17 @@ from app.prompts.support_chat import (
     BRANCH_ADDENDA,
     CLOSING_INSTRUCTION,
     CONTEXT_TAG,
+    CLOSINGS,
     CONTINUE_NOTE,
     EXAMPLES,
+    EXAMPLES_BY_LANGUAGE,
     FIXED_OPENING,
     LISTEN_NOTE,
+    OPENINGS,
     RETURN_TO_POST_NOTE,
     SUPPORT_CHAT_SYSTEM_PROMPT,
     build_system_prompt,
+    opening_for,
     stage_note,
 )
 from app.schemas import ChatMessage
@@ -331,11 +335,64 @@ def test_disengage_has_no_stage_note(verdict):
     assert not any(note in prompt for note in ALL_NOTES)
 
 
+# --- reply language --------------------------------------------------------
+
+LANGUAGE_NAMES = [("en", "English"), ("ar", "Arabic"), ("fr", "French"), ("de", "German")]
+
+
+@pytest.mark.parametrize("language,name", LANGUAGE_NAMES)
+def test_build_names_the_reply_language_before_the_context_block(verdict, language, name):
+    prompt = build_system_prompt("my draft post", verdict, language=language)
+    assert f"Respond in {name}" in prompt
+    assert prompt.index(f"Respond in {name}") < prompt.rindex(OPEN_TAG)
+
+
+def test_build_replies_in_english_by_default(verdict):
+    assert "Respond in English" in build_system_prompt("my draft post", verdict)
+
+
+def test_the_reply_language_line_is_the_only_one_named(verdict):
+    prompt = build_system_prompt("my draft post", verdict, language="fr")
+    assert "Respond in French" in prompt
+    assert "Respond in English" not in prompt
+
+
+def test_build_uses_the_localized_examples(verdict, monkeypatch):
+    monkeypatch.setitem(EXAMPLES_BY_LANGUAGE["fr"], "return", "Exemple : un echange")
+    prompt = build_system_prompt(
+        "my draft post", verdict, "grievance", phase="return", language="fr"
+    )
+    assert "Exemple : un echange" in prompt
+    assert EXAMPLES["return"] not in prompt
+
+
+def test_build_uses_the_localized_closing(verdict, monkeypatch):
+    monkeypatch.setitem(CLOSINGS, "de", "Schlussanweisung")
+    prompt = build_system_prompt(
+        "my draft post", verdict, "belief", closing=True, language="de"
+    )
+    assert "Schlussanweisung" in prompt
+    assert CLOSING_INSTRUCTION not in prompt
+
+
+def test_the_english_closing_is_the_closing_instruction():
+    assert CLOSINGS["en"] == CLOSING_INSTRUCTION
+
+
 # --- fixed messages --------------------------------------------------------
 
 
 def test_fixed_opening_is_the_agreed_question():
     assert FIXED_OPENING == "What made you say that?"
+
+
+def test_opening_for_english_is_the_fixed_opening():
+    assert opening_for("en") == FIXED_OPENING
+
+
+def test_opening_for_returns_the_language_entry(monkeypatch):
+    monkeypatch.setitem(OPENINGS, "ar", "opening in arabic")
+    assert opening_for("ar") == "opening in arabic"
 
 
 # --- router prompt ---------------------------------------------------------

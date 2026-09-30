@@ -118,6 +118,21 @@ def test_chat_request_rejects_a_long_user_name():
         ChatRequest(**chat_dict(user_name="a" * 51))
 
 
+def test_chat_request_language_defaults_to_english():
+    assert ChatRequest(**chat_dict()).language == "en"
+
+
+@pytest.mark.parametrize("language", ["en", "ar", "fr", "de"])
+def test_chat_request_accepts_a_supported_language(language):
+    assert ChatRequest(**chat_dict(language=language)).language == language
+
+
+@pytest.mark.parametrize("language", ["he", "es", "EN", ""])
+def test_chat_request_rejects_an_unsupported_language(language):
+    with pytest.raises(ValidationError):
+        ChatRequest(**chat_dict(language=language))
+
+
 def test_chat_history_ending_with_user_is_valid():
     req = ChatRequest(**chat_dict(history=[msg("user"), msg("ai"), msg("user")]))
     assert len(req.history) == 3

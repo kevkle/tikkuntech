@@ -11,7 +11,7 @@ from app.config import load_settings
 from app.llm import get_chat_llm, get_router_llm
 from app.logging_config import describe_error
 from app.prompts.router import ROUTER_SYSTEM_PROMPT, build_router_input
-from app.prompts.support_chat import FIXED_OPENING, Phase, build_system_prompt
+from app.prompts.support_chat import Phase, build_system_prompt, opening_for
 from app.schemas import Branch, ChatRequest, RouteVerdict
 
 logger = logging.getLogger("app.chat")
@@ -137,8 +137,9 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         raise HTTPException(status_code=503, detail="Chat is not configured")
 
     if not req.history:
-        _log_transcript("opening", None, 1, None, FIXED_OPENING)
-        return _static(FIXED_OPENING)
+        opening = opening_for(req.language)
+        _log_transcript("opening", None, 1, None, opening)
+        return _static(opening)
 
     branch, ready, reason = await _route(req)
     bot_turn = sum(m.role == "ai" for m in req.history) + 1
@@ -168,6 +169,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         closing=phase == "close" or (branch == "disengage" and bot_turn >= MAX_BOT_TURNS),
         phase=None if phase == "close" else phase,
         user_name=req.user_name,
+        language=req.language,
     )
     messages = [SystemMessage(content=system)]
     for m in req.history:

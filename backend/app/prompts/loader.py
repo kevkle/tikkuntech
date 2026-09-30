@@ -4,14 +4,33 @@ from pathlib import Path
 
 PROMPTS_DIR = Path(__file__).parent
 
+# First line of a drafted translation that a native speaker has not reviewed yet. It is a
+# marker for people and tests, so it never reaches the model.
+REVIEW_MARKER = "<!-- needs-native-review -->"
+
 
 def load_prompt(relative_path: str) -> str:
-    """Return a prompt file's text without its trailing newline.
+    """Return a prompt file's text without its trailing newline or review marker.
 
     A missing file raises at import time, so a broken prompt path fails at startup
     instead of on the first chat request.
     """
-    return (PROMPTS_DIR / relative_path).read_text(encoding="utf-8").rstrip("\n")
+    text = (PROMPTS_DIR / relative_path).read_text(encoding="utf-8")
+    if text.startswith(REVIEW_MARKER):
+        text = text[len(REVIEW_MARKER) :].lstrip("\n")
+    return text.rstrip("\n")
+
+
+def localized_path(relative_path: str, language: str) -> str:
+    """The language's copy of a prompt file, or the English file when it has none.
+
+    "chat/opening.md" in French is "chat/locales/fr/opening.md" if that file exists.
+    """
+    if language == "en":
+        return relative_path
+    folder, _, name = relative_path.rpartition("/")
+    candidate = f"{folder}/locales/{language}/{name}" if folder else f"locales/{language}/{name}"
+    return candidate if (PROMPTS_DIR / candidate).is_file() else relative_path
 
 
 def load_sections(relative_path: str) -> dict[str, str]:
