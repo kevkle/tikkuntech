@@ -53,6 +53,8 @@ class ChatRequest(BaseModel):
     # "return" the next reply is the close, after "close" the chat continues. The server
     # itself keeps no conversation state.
     last_phase: Literal["return", "close"] | None = None
+    # What to call the person; the chat uses it like a human would. Optional.
+    user_name: str | None = Field(default=None, max_length=50)
 
     @model_validator(mode="after")
     def history_ends_with_user(self) -> "ChatRequest":

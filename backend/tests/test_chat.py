@@ -137,6 +137,21 @@ def test_system_prompt_carries_the_post_and_verdict(client, set_chat, body):
     assert "Severity: high" in system
 
 
+def test_user_name_reaches_the_system_prompt(client, set_chat, body):
+    fake = set_chat(FakeChat(["ok"]))
+    body["user_name"] = "Mark"
+    client.post("/chat", json=body)
+
+    assert "Person's name: Mark" in fake.calls[0][0].content
+
+
+def test_no_user_name_means_no_name_line(client, set_chat, body):
+    fake = set_chat(FakeChat(["ok"]))
+    client.post("/chat", json=body)
+
+    assert "Person's name" not in fake.calls[0][0].content
+
+
 # --- routing ---------------------------------------------------------------
 
 

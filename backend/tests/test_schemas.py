@@ -105,6 +105,19 @@ def test_chat_request_rejects_an_unknown_last_phase():
         ChatRequest(**chat_dict(last_phase="listen"))
 
 
+def test_chat_request_user_name_defaults_to_none():
+    assert ChatRequest(**chat_dict()).user_name is None
+
+
+def test_chat_request_accepts_a_user_name():
+    assert ChatRequest(**chat_dict(user_name="Mark")).user_name == "Mark"
+
+
+def test_chat_request_rejects_a_long_user_name():
+    with pytest.raises(ValidationError):
+        ChatRequest(**chat_dict(user_name="a" * 51))
+
+
 def test_chat_history_ending_with_user_is_valid():
     req = ChatRequest(**chat_dict(history=[msg("user"), msg("ai"), msg("user")]))
     assert len(req.history) == 3

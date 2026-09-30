@@ -50,9 +50,13 @@ def build_system_prompt(
     branch: Branch = "mixed",
     closing: bool = False,
     phase: Phase | None = None,
+    user_name: str | None = None,
 ) -> str:
     # Strip the closing tag from user text so a post cannot break out of the block.
     safe_post = post.replace(f"</{CONTEXT_TAG}>", "")
+    # The name goes on one line, so collapse any newlines and drop the closing tag too.
+    safe_name = " ".join((user_name or "").replace(f"</{CONTEXT_TAG}>", "").split())
+    name_line = f"Person's name: {safe_name}\n" if safe_name else ""
     sections = [SUPPORT_CHAT_SYSTEM_PROMPT, BRANCH_ADDENDA[branch]]
     # The close and the disengage branch have their own instructions, so no stage note.
     note = None if closing or branch == "disengage" else stage_note(phase)
@@ -67,6 +71,7 @@ def build_system_prompt(
         "\n\n".join(sections)
         + "\n\n"
         + f"<{CONTEXT_TAG}>\n"
+        + name_line
         + f"Draft post:\n{safe_post}\n\n"
         + f"Category: {verdict.category}\n"
         + f"Severity: {verdict.severity}\n"

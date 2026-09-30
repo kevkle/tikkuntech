@@ -32,6 +32,7 @@ export async function streamChat(
   verdict: Verdict,
   history: Message[],
   lastPhase: ChatPhase | null,
+  userName: string,
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
 ): Promise<ChatResult> {
@@ -44,6 +45,7 @@ export async function streamChat(
       history: history.map(({ role, text }) => ({ role, text })),
       // The stage of the last bot message, so the server knows what comes next.
       last_phase: lastPhase,
+      user_name: userName,
     }),
     signal,
   });

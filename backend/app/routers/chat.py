@@ -167,6 +167,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         # The disengage branch has no option buttons; it only gets the warm close at the cap.
         closing=phase == "close" or (branch == "disengage" and bot_turn >= MAX_BOT_TURNS),
         phase=None if phase == "close" else phase,
+        user_name=req.user_name,
     )
     messages = [SystemMessage(content=system)]
     for m in req.history:

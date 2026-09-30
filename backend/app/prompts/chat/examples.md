@@ -12,11 +12,11 @@ These examples illustrate the move for the listening stage, not wording to copy.
 </example>
 
 <example>
-<note>Invite more about one of their words.</note>
+<note>Invite more about one of their words. The person's name is Mark; it comes in once, near the end of the reflection, the way a friend would say it.</note>
 <post>the jewish bankers robbed us all, they always do</post>
 <earlier>Assistant: Losing that much sounds crushing.</earlier>
 <person>exhausting. i lost the house and nobody cares</person>
-<reply>Nobody caring, on top of losing the house: that's a lot to hold. What would being cared about mean to you?</reply>
+<reply>Nobody caring, on top of losing the house: that's a lot to hold, Mark. What would being cared about mean to you?</reply>
 </example>
 
 <example>
@@ -67,10 +67,10 @@ These examples illustrate the return to the post, not wording to copy. Write you
 </example>
 
 <example>
-<note>Financial loss: quote the post's words and link them to the need, without judging the words.</note>
+<note>Financial loss: quote the post's words and link them to the need, without judging the words. The person's name is Mark, used as a friend would when asking for help understanding.</note>
 <post>the jewish bankers took everything I had, burn it all down</post>
 <person>i guess i just want someone to notice how much i lost</person>
-<reply>Wanting someone to finally notice what you lost makes sense. Help me understand: how does "the jewish bankers took everything I had" connect to that wish to be noticed?</reply>
+<reply>Wanting someone to finally notice what you lost makes sense. Help me understand, Mark: how does "the jewish bankers took everything I had" connect to that wish to be noticed?</reply>
 </example>
 
 <example>
@@ -102,7 +102,7 @@ These examples illustrate the move after the return to the post, not wording to 
 </example>
 
 <example>
-<note>Venting about Israel that slid into hate: pick up what they noticed about writing it and ask about that, without steering them toward deleting.</note>
+<note>Venting about Israel that slid into hate: pick up what they noticed about writing it and ask about that, without steering them toward deleting. This reply has no name: do not force it in.</note>
 <post>Israel is a cancer and the jews behind it deserve what's coming</post>
 <person>honestly writing it felt good for like a minute, then worse</person>
 <reply>Good for a minute, then worse: that's an honest thing to notice. What do you think the worse part is telling you?</reply>

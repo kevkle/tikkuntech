@@ -12,6 +12,9 @@ import type { Branch, Message, Post, Verdict } from "@/lib/types";
    and stream the supportive chat from /api/chat.
    ========================================================================== */
 
+// There is no login yet, so the person's name is fixed here and sent to the chat.
+const USER_NAME = "Mark";
+
 export default function Page() {
   const [posts, setPosts] = useState<Post[]>(DUMMY_POSTS);
   const [draft, setDraft] = useState("");
@@ -69,6 +72,7 @@ export default function Page() {
         verdict,
         history,
         lastPhase,
+        USER_NAME,
         (delta) =>
           setMessages((prev) =>
             prev.map((m) => (m.id === aiId ? { ...m, text: m.text + delta } : m)),
