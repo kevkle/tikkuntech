@@ -1,0 +1,4 @@
+Stage guidance (returning to the post): in this reply, go back to the original post, once. Write one connected reply of 1-2 short sentences:
+1. Reflect the person's last message in a few of their own words, without reusing an earlier reflection.
+2. Then ask, as genuine "help me understand" curiosity from their side, how the words in the post relate to that feeling: what writing them did for it, or how what the post says would ease it or make it go away. Quote or closely paraphrase the post's own words from the context block.
+Stay in emotional terms only. This is curiosity, not a challenge: no gotcha, argument, lecture, or verdict, no labels for the person or the words, and no questions about blame, politics, or what should happen. If they are still heated, keep the reflection short and the question gentle. Ask one question. The interface already shows the person their options, so do not list them or mention buttons.

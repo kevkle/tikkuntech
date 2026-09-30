@@ -7,6 +7,7 @@ from app.prompts.support_chat import (
     CLOSING_INSTRUCTION,
     CONTEXT_TAG,
     CONTINUE_NOTE,
+    EXAMPLES,
     FIXED_OPENING,
     LISTEN_NOTE,
     RETURN_TO_POST_NOTE,
@@ -154,7 +155,8 @@ def test_prompt_keeps_questions_on_feelings_and_values():
 
 
 def test_prompt_says_not_to_argue_with_the_view():
-    assert "Do not argue with, correct, or question their view" in SUPPORT_CHAT_SYSTEM_PROMPT
+    # "challenge", not "question": the return-to-post question is allowed curiosity.
+    assert "Do not argue with, correct, or challenge their view" in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
 def test_grievance_addendum_asks_what_justice_means_to_them():
@@ -245,6 +247,35 @@ def test_build_includes_exactly_the_stage_note_for_the_phase(verdict, phase, not
     for other in ALL_NOTES:
         if other != note:
             assert other not in prompt
+
+
+def test_build_appends_the_phase_examples_after_the_note(verdict, monkeypatch):
+    monkeypatch.setitem(EXAMPLES, "return", "Example: a sample exchange")
+    prompt = build_system_prompt("my draft post", verdict, "grievance", phase="return")
+    assert (
+        prompt.index(RETURN_TO_POST_NOTE)
+        < prompt.index("Example: a sample exchange")
+        < prompt.rindex(OPEN_TAG)
+    )
+
+
+def test_build_adds_no_examples_when_the_phase_has_none(verdict, monkeypatch):
+    monkeypatch.setitem(EXAMPLES, "listen", "")
+    prompt = build_system_prompt("my draft post", verdict, "grievance", phase="listen")
+    assert prompt.endswith(CLOSE_TAG)
+    assert f"{LISTEN_NOTE}\n\n<{CONTEXT_TAG}>" in prompt
+
+
+def test_examples_are_left_out_of_the_closing_and_disengage_prompts(verdict, monkeypatch):
+    monkeypatch.setitem(EXAMPLES, "continue", "Example: a sample exchange")
+    closing = build_system_prompt(
+        "my draft post", verdict, "belief", closing=True, phase="continue"
+    )
+    disengage = build_system_prompt(
+        "my draft post", verdict, "disengage", phase="continue"
+    )
+    assert "Example: a sample exchange" not in closing
+    assert "Example: a sample exchange" not in disengage
 
 
 def test_build_without_a_phase_has_no_stage_note(verdict):

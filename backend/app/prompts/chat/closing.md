@@ -1,0 +1,1 @@
+This is your final message in this conversation. Close warmly: thank them for talking, make no demand, and say they are welcome to keep talking. Do not repeat an earlier reflection, and do not list their options or mention buttons. Do not ask a further question.
