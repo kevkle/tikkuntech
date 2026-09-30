@@ -1,6 +1,6 @@
 from typing import Literal, get_args
 
-from app.prompts.loader import load_prompt
+from app.prompts.loader import load_prompt, load_sections
 from app.schemas import Branch, Verdict
 
 CONTEXT_TAG = "flagged_post_context"
@@ -9,20 +9,21 @@ CONTEXT_TAG = "flagged_post_context"
 FIXED_OPENING = "What made you say that?"
 
 # The prompt text lives in plain files under chat/ so it can be edited without touching
-# Python: base.md, branches/, stages/, examples/ and closing.md.
+# Python: base.md, branches.md, stages.md, examples.md and closing.md. The last three
+# split into one "## name" section per branch or phase.
 SUPPORT_CHAT_SYSTEM_PROMPT = load_prompt("chat/base.md")
 
 # One addendum per branch. "mixed" is also the default when the router cannot decide.
-BRANCH_ADDENDA: dict[Branch, str] = {
-    branch: load_prompt(f"chat/branches/{branch}.md") for branch in get_args(Branch)
-}
+_BRANCH_SECTIONS = load_sections("chat/branches.md")
+BRANCH_ADDENDA: dict[Branch, str] = {branch: _BRANCH_SECTIONS[branch] for branch in get_args(Branch)}
 
 # Stage guidance, chosen by the conversation phase the server works out each turn.
 Phase = Literal["listen", "return", "continue"]
 
-LISTEN_NOTE = load_prompt("chat/stages/listen.md")
-RETURN_TO_POST_NOTE = load_prompt("chat/stages/return.md")
-CONTINUE_NOTE = load_prompt("chat/stages/continue.md")
+_STAGE_SECTIONS = load_sections("chat/stages.md")
+LISTEN_NOTE = _STAGE_SECTIONS["listen"]
+RETURN_TO_POST_NOTE = _STAGE_SECTIONS["return"]
+CONTINUE_NOTE = _STAGE_SECTIONS["continue"]
 
 _NOTES: dict[Phase, str] = {
     "listen": LISTEN_NOTE,
@@ -30,10 +31,9 @@ _NOTES: dict[Phase, str] = {
     "continue": CONTINUE_NOTE,
 }
 
-# Worked examples for each phase, appended after its stage note (empty file = none).
-EXAMPLES: dict[Phase, str] = {
-    phase: load_prompt(f"chat/examples/{phase}.md") for phase in get_args(Phase)
-}
+# Worked examples for each phase, appended after its stage note (empty section = none).
+_EXAMPLE_SECTIONS = load_sections("chat/examples.md")
+EXAMPLES: dict[Phase, str] = {phase: _EXAMPLE_SECTIONS[phase] for phase in get_args(Phase)}
 
 
 def stage_note(phase: Phase | None) -> str | None:
