@@ -6,6 +6,9 @@
 # Local data
 data/
 
+# Superpowers plans and specs
+docs/superpowers/
+
 # Python
 __pycache__/
 *.pyc
