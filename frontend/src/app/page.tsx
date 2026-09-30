@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { DUMMY_POSTS, MainFeed } from "@/components/MainFeed";
 import { InterventionModal } from "@/components/InterventionModal";
+import { DEFAULT_LANGUAGE, isLanguage } from "@/i18n/config";
 import { classifyPost, streamChat, type ChatPhase } from "@/lib/api";
-import type { Branch, Message, Post, Verdict } from "@/lib/types";
+import type { Branch, Language, Message, Post, Verdict } from "@/lib/types";
 
 /* ==========================================================================
    COMPONENT 3: App (Controller)
@@ -16,6 +18,10 @@ import type { Branch, Message, Post, Verdict } from "@/lib/types";
 const USER_NAME = "Mark";
 
 export default function Page() {
+  const t = useTranslations();
+  // The language picked in the UI; the chat replies in it too.
+  const locale = useLocale();
+  const language: Language = isLanguage(locale) ? locale : DEFAULT_LANGUAGE;
   const [posts, setPosts] = useState<Post[]>(DUMMY_POSTS);
   const [draft, setDraft] = useState("");
   const [isPosting, setIsPosting] = useState(false);
@@ -39,9 +45,9 @@ export default function Page() {
     setPosts((prev) => [
       {
         id: Date.now(),
-        author: "You",
+        author: t("feed.you"),
         handle: "@you",
-        time: "now",
+        time: t("feed.now"),
         text,
         colorClass: "bg-slate-900 text-white",
       },
@@ -73,6 +79,7 @@ export default function Page() {
         history,
         lastPhase,
         USER_NAME,
+        language,
         (delta) =>
           setMessages((prev) =>
             prev.map((m) => (m.id === aiId ? { ...m, text: m.text + delta } : m)),
@@ -86,9 +93,7 @@ export default function Page() {
       console.error("chat failed:", err instanceof Error ? err.message : err);
       // The user can still delete or publish, so a chat failure never blocks them.
       setMessages((prev) => prev.filter((m) => !(m.id === aiId && m.text === "")));
-      setChatError(
-        "Something went wrong. You can try sending again, or choose an option below.",
-      );
+      setChatError(t("errors.chat"));
     } finally {
       if (abortRef.current === controller) setIsStreaming(false);
     }
@@ -113,7 +118,7 @@ export default function Page() {
     } catch (err) {
       console.error("classify failed:", err instanceof Error ? err.message : err);
       // Fail closed: never publish a post that could not be checked.
-      setError("We couldn't check your post. Please try again.");
+      setError(t("errors.classify"));
     } finally {
       setIsPosting(false);
     }

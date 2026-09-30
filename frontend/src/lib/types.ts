@@ -14,6 +14,9 @@ export type Message = {
   text: string;
 };
 
+// Mirrors backend/app/schemas.py Language
+export type Language = "en" | "ar" | "fr" | "de";
+
 // Mirrors backend/app/schemas.py Branch
 export type Branch = "belief" | "grievance" | "joke" | "mixed" | "disengage";
 

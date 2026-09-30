@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// Finds the request config at src/i18n/request.ts.
+const withNextIntl = createNextIntlPlugin();
 
 // Rewrites are resolved at build time, so BACKEND_URL must be set during `next build`.
 const backendUrl = process.env.BACKEND_URL ?? "http://backend:8000";
@@ -12,4 +16,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

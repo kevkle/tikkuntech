@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "title": "TikkunTech",
+    "description": "Denk nach, bevor du postest"
+  },
+  "language": {
+    "label": "Sprache"
+  },
+  "feed": {
+    "home": "Startseite",
+    "you": "Du",
+    "now": "jetzt",
+    "placeholder": "Was gibt's Neues?",
+    "post": "Posten",
+    "more": "Mehr",
+    "reply": "Antworten",
+    "repost": "Teilen",
+    "like": "Gefällt mir",
+    "share": "Weitergeben"
+  },
+  "modal": {
+    "title": "Bevor du postest",
+    "subtitle": "Kurz innehalten",
+    "close": "Schließen und meinen Beitrag weiter bearbeiten",
+    "typing": "Der Assistent schreibt",
+    "yourCall": "Wann immer du bereit bist. Du entscheidest.",
+    "editPost": "Beitrag bearbeiten",
+    "postAsIs": "So posten",
+    "inputPlaceholder": "Schreib deine Antwort...",
+    "send": "Senden",
+    "deletePost": "Beitrag löschen",
+    "publishAnyway": "Trotzdem veröffentlichen",
+    "quickReplies": {
+      "angry": "Ich bin einfach wütend",
+      "meantIt": "Ich habe es so gemeint",
+      "whyCare": "Warum interessiert dich das?",
+      "joke": "Das war nur ein Witz"
+    }
+  },
+  "errors": {
+    "chat": "Etwas ist schiefgelaufen. Du kannst es erneut versuchen oder unten eine Option wählen.",
+    "classify": "Wir konnten deinen Beitrag nicht prüfen. Bitte versuche es erneut."
+  },
+  "resources": {
+    "kinds": {
+      "learn": "Mehr erfahren",
+      "talk": "Mit anderen sprechen"
+    },
+    "learn": {
+      "placeholder": {
+        "title": "Ausgewählte Lesetipps folgen bald",
+        "blurb": "Kurze, wertfreie Erklärungen dazu, wie solche Sprache ankommt. Nichts davon ist Pflicht."
+      }
+    },
+    "talk": {
+      "placeholder": {
+        "title": "Ausgewählte Gemeinschaften folgen bald",
+        "blurb": "Moderierte Gespräche und Selbsthilfegruppen, denen du beitreten kannst, wenn du möchtest. Nichts davon ist Pflicht."
+      }
+    }
+  }
+}

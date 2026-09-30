@@ -1,6 +1,8 @@
 "use client";
 
 import { Heart, MessageCircle, MoreHorizontal, Repeat, Share } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import type { Post } from "@/lib/types";
 
 /* ==========================================================================
@@ -48,13 +50,17 @@ export function MainFeed({
   isPosting = false,
   error = null,
 }: MainFeedProps) {
+  const t = useTranslations("feed");
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
-          <h1 className="text-xl font-bold text-slate-900">Home</h1>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
-            You
+          <h1 className="text-xl font-bold text-slate-900">{t("home")}</h1>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+              {t("you")}
+            </div>
           </div>
         </div>
       </header>
@@ -63,14 +69,14 @@ export function MainFeed({
         {/* Create Post box */}
         <section className="mb-8 flex gap-4 border-b border-slate-200 pb-6">
           <div className="hidden h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 font-bold text-white sm:flex">
-            You
+            {t("you")}
           </div>
           <div className="flex-1">
             <textarea
               value={draft}
               onChange={(e) => onDraftChange(e.target.value)}
               rows={3}
-              placeholder="What's happening?"
+              placeholder={t("placeholder")}
               className="w-full resize-none bg-transparent text-lg text-slate-900 placeholder-slate-500 focus:outline-none"
             />
             {error && (
@@ -84,7 +90,7 @@ export function MainFeed({
                 disabled={isPosting || !draft.trim()}
                 className="rounded-full bg-slate-900 px-6 py-2 text-sm font-bold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50"
               >
-                Post
+                {t("post")}
               </button>
             </div>
           </div>
@@ -114,7 +120,7 @@ export function MainFeed({
                         {post.time}
                       </span>
                     </div>
-                    <button aria-label="More" className="text-slate-400 hover:text-slate-900">
+                    <button aria-label={t("more")} className="text-slate-400 hover:text-slate-900">
                       <MoreHorizontal size={18} />
                     </button>
                   </div>
@@ -122,22 +128,22 @@ export function MainFeed({
                     {post.text}
                   </p>
                   <div className="mt-4 flex max-w-md items-center justify-between text-slate-500">
-                    <button aria-label="Reply" className="group flex items-center gap-2 hover:text-blue-500">
+                    <button aria-label={t("reply")} className="group flex items-center gap-2 hover:text-blue-500">
                       <div className="rounded-full p-2 group-hover:bg-blue-50">
                         <MessageCircle size={18} />
                       </div>
                     </button>
-                    <button aria-label="Repost" className="group flex items-center gap-2 hover:text-emerald-500">
+                    <button aria-label={t("repost")} className="group flex items-center gap-2 hover:text-emerald-500">
                       <div className="rounded-full p-2 group-hover:bg-emerald-50">
                         <Repeat size={18} />
                       </div>
                     </button>
-                    <button aria-label="Like" className="group flex items-center gap-2 hover:text-rose-500">
+                    <button aria-label={t("like")} className="group flex items-center gap-2 hover:text-rose-500">
                       <div className="rounded-full p-2 group-hover:bg-rose-50">
                         <Heart size={18} />
                       </div>
                     </button>
-                    <button aria-label="Share" className="group flex items-center gap-2 hover:text-blue-500">
+                    <button aria-label={t("share")} className="group flex items-center gap-2 hover:text-blue-500">
                       <div className="rounded-full p-2 group-hover:bg-blue-50">
                         <Share size={18} />
                       </div>

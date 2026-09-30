@@ -1,4 +1,4 @@
-import type { Branch, Message, Verdict } from "./types";
+import type { Branch, Language, Message, Verdict } from "./types";
 
 const BRANCHES: readonly string[] = ["belief", "grievance", "joke", "mixed", "disengage"];
 
@@ -33,6 +33,7 @@ export async function streamChat(
   history: Message[],
   lastPhase: ChatPhase | null,
   userName: string,
+  language: Language,
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
 ): Promise<ChatResult> {
@@ -46,6 +47,7 @@ export async function streamChat(
       // The stage of the last bot message, so the server knows what comes next.
       last_phase: lastPhase,
       user_name: userName,
+      language,
     }),
     signal,
   });

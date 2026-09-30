@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { KIND_LABELS, MENU_EXTRAS, RESOURCES, type ResourceKind } from "@/lib/resources";
+import { useTranslations } from "next-intl";
+import { MENU_EXTRAS, RESOURCES, type ResourceKind } from "@/lib/resources";
 import type { Branch, Message } from "@/lib/types";
 
 /* ==========================================================================
@@ -17,8 +18,9 @@ import type { Branch, Message } from "@/lib/types";
      - `onClose` -> exit without deleting or publishing (back to editing)
    ========================================================================== */
 
-// One-tap starters shown before the person has replied. They are sent like typed text.
-const QUICK_REPLIES = ["I'm just angry", "I meant it", "Why do you care?", "It's just a joke"];
+// One-tap starters shown before the person has replied. They are sent like typed text, in
+// the page language (messages/<language>.json, "modal.quickReplies").
+const QUICK_REPLIES = ["angry", "meantIt", "whyCare", "joke"] as const;
 
 type InterventionModalProps = {
   isOpen?: boolean;
@@ -43,6 +45,8 @@ export function InterventionModal({
   onPublishAnyway = () => {},
   onClose = () => {},
 }: InterventionModalProps) {
+  const t = useTranslations("modal");
+  const tr = useTranslations("resources");
   const [input, setInput] = useState("");
   const [openPanel, setOpenPanel] = useState<ResourceKind | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -87,13 +91,13 @@ export function InterventionModal({
               AI
             </div>
             <div>
-              <div className="text-sm font-semibold text-white">Before you post</div>
-              <div className="text-xs text-slate-400">A quick check-in</div>
+              <div className="text-sm font-semibold text-white">{t("title")}</div>
+              <div className="text-xs text-slate-400">{t("subtitle")}</div>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close and keep editing my post"
+            aria-label={t("close")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-300/50"
           >
             <svg
@@ -121,8 +125,8 @@ export function InterventionModal({
                 {waiting ? (
                   <div
                     role="status"
-                    aria-label="Assistant is typing"
-                    className="flex items-center gap-1.5 rounded-3xl rounded-bl-lg border border-white/10 bg-white/10 px-5 py-4 backdrop-blur-md"
+                    aria-label={t("typing")}
+                    className="flex items-center gap-1.5 rounded-3xl rounded-es-lg border border-white/10 bg-white/10 px-5 py-4 backdrop-blur-md"
                   >
                     {[0, 150, 300].map((delay) => (
                       <span
@@ -134,10 +138,13 @@ export function InterventionModal({
                   </div>
                 ) : (
                   <div
+                    // Each message sets its own direction, so an English quote inside an
+                    // Arabic reply (or the reverse) reads correctly.
+                    dir="auto"
                     className={`max-w-[75%] whitespace-pre-wrap rounded-3xl px-5 py-3 text-[15px] leading-relaxed shadow-lg ${
                       m.role === "user"
-                        ? "rounded-br-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white"
-                        : "rounded-bl-lg border border-white/10 bg-white/10 text-slate-100 backdrop-blur-md"
+                        ? "rounded-ee-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white"
+                        : "rounded-es-lg border border-white/10 bg-white/10 text-slate-100 backdrop-blur-md"
                     }`}
                   >
                     {m.text}
@@ -157,13 +164,13 @@ export function InterventionModal({
         {/* Quick replies */}
         {showQuickReplies && (
           <div className="flex flex-wrap gap-2 px-6 pb-3">
-            {QUICK_REPLIES.map((label) => (
+            {QUICK_REPLIES.map((key) => (
               <button
-                key={label}
-                onClick={() => handleSend(label)}
+                key={key}
+                onClick={() => handleSend(t(`quickReplies.${key}`))}
                 className={optionClass}
               >
-                {label}
+                {t(`quickReplies.${key}`)}
               </button>
             ))}
           </div>
@@ -172,15 +179,13 @@ export function InterventionModal({
         {/* Option menu: shown after the fixed menu message. All options carry equal weight. */}
         {showMenu && (
           <div className="px-6 pb-3">
-            <p className="mb-2 text-xs text-slate-400">
-              {"Whenever you're ready. It's your call."}
-            </p>
+            <p className="mb-2 text-xs text-slate-400">{t("yourCall")}</p>
             <div className="flex flex-wrap gap-2">
               <button onClick={onClose} className={optionClass}>
-                Edit my post
+                {t("editPost")}
               </button>
               <button onClick={onPublishAnyway} className={optionClass}>
-                Post it as is
+                {t("postAsIs")}
               </button>
               {extras.map((kind) => (
                 <button
@@ -189,14 +194,14 @@ export function InterventionModal({
                   aria-expanded={openPanel === kind}
                   className={optionClass}
                 >
-                  {KIND_LABELS[kind]}
+                  {tr(`kinds.${kind}`)}
                 </button>
               ))}
             </div>
             {openPanel && (
               <div className="mt-3 space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
                 {RESOURCES[openPanel].map((r) => (
-                  <div key={r.title}>
+                  <div key={r.id}>
                     {r.url ? (
                       <a
                         href={r.url}
@@ -204,12 +209,14 @@ export function InterventionModal({
                         rel="noopener noreferrer"
                         className="font-semibold text-indigo-300 underline"
                       >
-                        {r.title}
+                        {tr(`${openPanel}.${r.id}.title`)}
                       </a>
                     ) : (
-                      <span className="font-semibold text-white">{r.title}</span>
+                      <span className="font-semibold text-white">
+                        {tr(`${openPanel}.${r.id}.title`)}
+                      </span>
                     )}
-                    <p className="text-slate-300">{r.blurb}</p>
+                    <p className="text-slate-300">{tr(`${openPanel}.${r.id}.blurb`)}</p>
                   </div>
                 ))}
               </div>
@@ -224,7 +231,7 @@ export function InterventionModal({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend(input)}
             disabled={isStreaming}
-            placeholder="Type your reply..."
+            placeholder={t("inputPlaceholder")}
             className="flex-1 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm text-white placeholder-slate-400 focus:border-indigo-300/60 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 disabled:opacity-60"
           />
           <button
@@ -232,7 +239,7 @@ export function InterventionModal({
             disabled={isStreaming || !input.trim()}
             className="rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-40"
           >
-            Send
+            {t("send")}
           </button>
         </div>
 
@@ -242,13 +249,13 @@ export function InterventionModal({
             onClick={onDeletePost}
             className="flex-1 rounded-xl bg-teal-500 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-teal-400"
           >
-            Delete Post
+            {t("deletePost")}
           </button>
           <button
             onClick={onPublishAnyway}
             className="flex-1 rounded-xl border border-amber-300/30 bg-amber-300/10 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20"
           >
-            Publish Anyway
+            {t("publishAnyway")}
           </button>
         </div>
       </div>
