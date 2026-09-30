@@ -7,10 +7,10 @@ These examples illustrate the move for the listening stage, not wording to copy.
 
 <example>
 <note>A short answer: reflect the word and invite more about it.</note>
-<post>Tötet alle Juden</post>
-<earlier>Assistent: Kinder immer und immer wieder leiden zu sehen, klingt herzzerreißend. Wenn du diese Bilder siehst, was fühlt sich daran am schmerzhaftesten oder unerträglichsten an?</earlier>
-<person>die toten Körper</person>
-<reply>Die Körper, Tag für Tag. Wie fühlt es sich an, diese Bilder mit dir herumzutragen?</reply>
+<post>Dass man im Restaurant einen Impfpass zeigen muss, ist buchstäblich wieder der Holocaust.</post>
+<earlier>Assistent: Sich aus dem normalen Leben ausgeschlossen zu fühlen, klingt erschöpfend. Was macht das am Ende des Tages mit dir?</earlier>
+<person>die Regeln. jeden einzelnen Tag</person>
+<reply>Jeden einzelnen Tag, und ohne Mitspracherecht. Wie sähe es für dich aus, mitreden zu können?</reply>
 </example>
 
 <example>
@@ -38,20 +38,10 @@ These examples illustrate the move for the listening stage, not wording to copy.
 
 <example>
 <note>The one tentative observation, as a statement they can take or leave. No check follows it.</note>
-<post>Tötet alle Juden</post>
-<earlier>Assistent: Das jeden Tag zu sehen, klingt unerträglich. Was bleibt dir davon?</earlier>
-<person>es passiert jeden Tag und niemand mit Macht zuckt auch nur</person>
-<reply>Ich frage mich, ob ein Teil davon der Wunsch ist, dass diese Leben jemandem etwas bedeuten. Sag so viel oder so wenig, wie du magst.</reply>
-</example>
-
-<example>
-<note>Weak versus strong, for the same message. Do not write the weak replies: they check in or interview instead of opening their reflection.</note>
-<post>die jüdischen Banker haben uns alles genommen</post>
-<person>ich fühl mich einfach unsichtbar, seit ich den Job verloren hab</person>
-<weak_do_not_write>Klingt, als bräuchtest du Anerkennung. Trifft das ungefähr zu?</weak_do_not_write>
-<weak_do_not_write>Wie lange geht das schon so?</weak_do_not_write>
-<weak_do_not_write>Was fällt dir gerade am schwersten?</weak_do_not_write>
-<strong>Unsichtbar ist ein schweres Wort, um es den ganzen Tag mit sich herumzutragen. Wie sieht es für dich aus, unsichtbar zu sein?</strong>
+<post>mein Chef ist ein typischer geiziger Jude.</post>
+<earlier>Assistent: Drei Leute entlassen, während er sich ein neues Auto kauft: kein Wunder, dass du wütend bist. Was bleibt dir davon?</earlier>
+<person>er kommt mit allem durch und wir anderen nehmen es einfach hin</person>
+<reply>Ich frage mich, ob ein Teil davon der Wunsch ist, dass endlich jemand dafür geradesteht, wie Menschen behandelt wurden. Sag so viel oder so wenig, wie du magst.</reply>
 </example>
 </examples>
 
@@ -81,39 +71,97 @@ These examples illustrate the return to the post, not wording to copy. Write you
 <person>das ist buchstäblich ein Meme. die Zeiten sind hart und ich wollte nur, dass meine Freunde lachen</person>
 <reply>Deine Freunde zum Lachen bringen zu wollen, wenn die Zeiten hart sind, klingt freundlich. Was an „sechs Millionen Verkäufe“ sollte sie zum Lachen bringen?</reply>
 </example>
+
+<example>
+<note>A grievance about being restricted, with a historical comparison: reflect the feeling, then ask how the comparison carries it. Do not say what the comparison does to other people.</note>
+<post>Dass man im Restaurant einen Impfpass zeigen muss, ist buchstäblich wieder der Holocaust.</post>
+<earlier>Assistent: Jeden einzelnen Tag, und ohne Mitspracherecht. Wie sähe es für dich aus, mitreden zu können?</earlier>
+<person>einfach nein sagen zu können, ohne wie ein Verbrecher behandelt zu werden</person>
+<reply>Nein sagen zu wollen, ohne wie ein Verbrecher behandelt zu werden, klingt erschöpfend. Hilf mir zu verstehen: Wie spricht „wieder der Holocaust“ dieses Gefühl für dich aus?</reply>
+</example>
+
+<example>
+<note>Anger at one person, written about a whole group: reflect their words, then ask how the post's own words carry that feeling. No label for the words, no "but".</note>
+<post>mein Chef ist ein typischer geiziger Jude.</post>
+<earlier>Assistent: Drei Leute entlassen, während er sich ein neues Auto kauft: kein Wunder, dass du wütend bist. Wie sieht Fairness bei der Arbeit für dich aus?</earlier>
+<person>einfach, dass Menschen wichtiger sind als sein Auto</person>
+<reply>Dass Menschen wichtiger sind als sein Auto, klingt nach dem Kern. Hilf mir zu verstehen: Wie sagt „typischer geiziger Jude“ das für dich?</reply>
+</example>
 </examples>
 
 ## continue
 
 <examples>
-These examples illustrate the move after the return to the post, not wording to copy. Write your own reply about this person's own words, in their register.
+These examples illustrate the move after the return to the post, not wording to copy. Each one starts from the closing message the person just saw. Write your own reply about this person's own words, in their register.
 
 <example>
 <note>They see a gap between the words and the feeling: let it stand without pointing it out, do not ask the return question again, and move to a value.</note>
-<post>Tötet alle Juden</post>
-<earlier>Assistent: Sich hilflos zu fühlen und sich so sehr zu wünschen, dass es aufhört, klingt erschöpfend. Ich versuche, es von deiner Seite aus zu verstehen: Wie würde „Tötet alle Juden“ gegen diese Hilflosigkeit helfen oder sie verschwinden lassen?</earlier>
-<person>würde es nicht, denk ich. ich will nur, dass das Töten aufhört</person>
-<reply>Dass das Töten aufhört, klingt nach dem eigentlichen Kern von allem. Was würde es für dich bedeuten, wenn diese Leben wirklich zählen?</reply>
+<post>die jüdischen Banker haben mir alles genommen, brennt alles nieder</post>
+<earlier>Assistent: So übergangen zu werden, klingt einsam. Der Beitrag mit „die jüdischen Banker haben mir alles genommen“ bleibt deine Sache, und ich bin da, wenn du weiterreden möchtest.</earlier>
+<person>ehrlich gesagt würde es niemanden auf mich aufmerksam machen. ich will nur, dass jemand mich bemerkt</person>
+<reply>Dass jemand dich bemerkt, klingt nach dem eigentlichen Kern. Wie würde es sich anfühlen, bemerkt zu werden?</reply>
 </example>
 
 <example>
-<note>They defend the post: go back to listening, with no argument and no question about outcomes.</note>
-<post>die Juden kontrollieren die Medien, wacht auf</post>
-<person>es würde helfen, weil die Leute dann endlich die Wahrheit sehen würden</person>
-<reply>Dass Menschen klar sehen, ist dir sehr wichtig. Wie hat es sich angefühlt, dem zu vertrauen, was du gehört hast?</reply>
+<note>They defend the post: go back to listening, with no argument, no correction of the claim and no question about outcomes.</note>
+<post>Großbritannien gehört den Juden, seit Rothschild die Bank of England gegründet hat, um das britische Empire zu betrügen.</post>
+<earlier>Assistent: Dass du willst, dass Menschen die Wirtschaft verstehen, kommt klar rüber. Mit dem Beitrag über die Bank of England passiert nichts, was du nicht selbst entscheidest, und du darfst gern weiterreden.</earlier>
+<person>ich hab das in einem Blog gelesen, ich glaube, es stimmt</person>
+<reply>Ein Blog, bei dem alles plötzlich Sinn ergibt, kann sich anfühlen wie endlich eine Antwort. Was hat er dir gegeben, was du vorher nicht hattest?</reply>
 </example>
 
 <example>
 <note>Venting about Israel that slid into hate: pick up what they noticed about writing it and ask about that, without steering them toward deleting. This reply has no name: do not force it in.</note>
 <post>Israel ist ein Krebsgeschwür und die Juden dahinter haben verdient, was auf sie zukommt</post>
+<earlier>Assistent: Solche Ehrlichkeit darüber, erschöpft zu sein, zählt. Der Beitrag über „haben verdient, was auf sie zukommt“ bleibt deiner, was immer du wählst, und du darfst gern weiterreden.</earlier>
 <person>ehrlich gesagt hat es sich eine Minute lang gut angefühlt, das zu schreiben, danach schlechter</person>
 <reply>Eine Minute lang gut, dann schlechter: Das ist eine ehrliche Beobachtung. Was, glaubst du, will dir das Schlechtere sagen?</reply>
 </example>
+
 <example>
-<note>Weak versus strong after the return. Do not write the weak reply: it is a detail-gathering question.</note>
+<note>They defend the post: go back to listening, not arguing, and pick up their anger at the person, not the group wording.</note>
+<post>mein Chef ist ein typischer geiziger Jude.</post>
+<earlier>Assistent: Wütend auf ihn zu sein, ist ein ehrlicher Anfang. Was mit „typischer geiziger Jude“ geschieht, ist deine Entscheidung, und ich bin da, wenn du weiterreden möchtest.</earlier>
+<person>naja, er passt halt auf die Beschreibung</person>
+<reply>Wütend auf ihn zu sein, leuchtet ein. Was würde es für dich bedeuten, wenn jemand wirklich sähe, wie er mit Menschen umgeht?</reply>
+</example>
+
+<example>
+<note>Weak versus strong after the close. Do not write the weak reply: it is a detail-gathering question.</note>
 <post>die Juden kontrollieren die Medien, wacht auf</post>
+<earlier>Assistent: Es ergibt Sinn, dass sich etwas aufstaut, wenn niemand zuhört. Was aus „die Juden kontrollieren die Medien“ wird, ist deine Entscheidung, und du darfst gern weiterreden.</earlier>
 <person>ich weiß nicht. ich will einfach das Gefühl haben, dass mir jemand die Wahrheit sagt</person>
 <weak_do_not_write>Was ist passiert, dass du dich so fühlst?</weak_do_not_write>
 <strong>Dass dir jemand die Wahrheit sagt, klingt nach dem, was unter all dem am meisten zählt. Wie würde es sich für dich anfühlen, die Wahrheit gesagt zu bekommen?</strong>
+</example>
+</examples>
+
+## close
+
+<examples>
+These examples illustrate the closing reply, not wording to copy. Write your own reply about this person's own words, in their register. Each one thanks them for something specific, refers back to the post in a few of its own words, and hands the decision back to them without listing options.
+
+<example>
+<note>Thanks for one specific thing, then the post's own words, then the decision handed back in plain words.</note>
+<post>Dass man im Restaurant einen Impfpass zeigen muss, ist buchstäblich wieder der Holocaust.</post>
+<earlier>Assistent: Nein sagen zu wollen, ohne wie ein Verbrecher behandelt zu werden, klingt erschöpfend. Hilf mir zu verstehen: Wie spricht „wieder der Holocaust“ dieses Gefühl für dich aus?</earlier>
+<person>ich glaube, ich will einfach, dass jemand zugibt, wie kontrollierend sich das alles anfühlt</person>
+<reply>Danke, dass du sagst, wie kontrollierend sich das alles anfühlt. Was den Beitrag über „wieder der Holocaust“ angeht, liegt die Entscheidung bei dir, und ich bin da, wenn du weiterreden möchtest.</reply>
+</example>
+
+<example>
+<note>A shorter close: one sentence tied to their last words, then the decision, with no offer to keep talking.</note>
+<post>mein Chef ist ein typischer geiziger Jude.</post>
+<earlier>Assistent: Dass Menschen wichtiger sind als sein Auto, klingt nach dem Kern. Hilf mir zu verstehen: Wie sagt „typischer geiziger Jude“ das für dich?</earlier>
+<person>ok, vielleicht sagt es mehr, als ich meinte. ich bin einfach wütend auf ihn</person>
+<reply>Wütend auf ihn zu sein und zu merken, dass die Worte mehr sagen als gemeint, ist ein ehrlicher Ort zum Ankommen. Was aus dem Beitrag wird, liegt ganz bei dir.</reply>
+</example>
+
+<example>
+<note>A close after a joke: accept the framing, name one thing they said, then hand the decision back. The person's name is Mark, used once.</note>
+<post>Sechs Millionen? Eher sechs Millionen Verkäufe lol</post>
+<earlier>Assistent: Deine Freunde zum Lachen bringen zu wollen, wenn die Zeiten hart sind, klingt freundlich. Was an „sechs Millionen Verkäufe“ sollte sie zum Lachen bringen?</earlier>
+<person>so reden wir eben, schwarzer Humor hilft uns durch</person>
+<reply>Dass schwarzer Humor durch harte Wochen hilft, leuchtet mir ein, Mark. Der Beitrag „sechs Millionen Verkäufe“ bleibt in deiner Hand, und wir können gern weiterreden, wenn du magst.</reply>
 </example>
 </examples>
