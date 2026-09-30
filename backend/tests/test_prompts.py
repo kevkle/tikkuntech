@@ -1,12 +1,13 @@
+import inspect
+
 import pytest
 
 from app.prompts.classifier import CLASSIFIER_SYSTEM_PROMPT
 from app.prompts.router import ROUTER_SYSTEM_PROMPT, build_router_input
 from app.prompts.support_chat import (
     BRANCH_ADDENDA,
-    CLOSING_INSTRUCTION,
+    CLOSE_NOTE,
     CONTEXT_TAG,
-    CLOSINGS,
     CONTINUE_NOTE,
     EXAMPLES,
     EXAMPLES_BY_LANGUAGE,
@@ -15,10 +16,12 @@ from app.prompts.support_chat import (
     OPENINGS,
     OPENINGS_NAMED,
     RETURN_TO_POST_NOTE,
+    SELECTION_NOTE,
+    STAGE_NOTES,
     SUPPORT_CHAT_SYSTEM_PROMPT,
     build_system_prompt,
+    build_turn_guidance,
     opening_for,
-    stage_note,
 )
 from app.schemas import ChatMessage
 
@@ -26,6 +29,7 @@ OPEN_TAG = f"<{CONTEXT_TAG}>"
 CLOSE_TAG = f"</{CONTEXT_TAG}>"
 
 BRANCHES = ["belief", "grievance", "joke", "mixed", "disengage"]
+PHASES = ["listen", "return", "close", "continue"]
 
 
 # --- support chat prompt ---------------------------------------------------
@@ -128,25 +132,10 @@ def test_every_branch_has_an_addendum():
     assert set(BRANCH_ADDENDA) == set(BRANCHES)
 
 
-@pytest.mark.parametrize("branch", BRANCHES)
-def test_branch_addendum_is_included_before_the_context_block(verdict, branch):
-    prompt = build_system_prompt("my draft post", verdict, branch)
-    assert BRANCH_ADDENDA[branch] in prompt
-    # rindex: the base prompt also mentions the tag by name, the real block is the last one.
-    assert prompt.index(BRANCH_ADDENDA[branch]) < prompt.rindex(OPEN_TAG)
 
 
-@pytest.mark.parametrize("branch", BRANCHES)
-def test_only_the_selected_addendum_is_included(verdict, branch):
-    prompt = build_system_prompt("my draft post", verdict, branch)
-    for other in BRANCHES:
-        if other != branch:
-            assert BRANCH_ADDENDA[other] not in prompt
 
 
-def test_default_branch_is_mixed(verdict):
-    prompt = build_system_prompt("my draft post", verdict)
-    assert BRANCH_ADDENDA["mixed"] in prompt
 
 
 @pytest.mark.parametrize("branch", BRANCHES)
@@ -157,9 +146,6 @@ def test_no_addendum_has_the_bot_share_how_it_landed(branch):
     assert "with permission" not in text
 
 
-@pytest.mark.parametrize("branch", ["belief", "grievance", "joke", "mixed"])
-def test_addenda_allow_the_soft_observation(branch):
-    assert "I wonder if" in BRANCH_ADDENDA[branch]
 
 
 TARGET_OR_SOLUTION_PHRASES = [
@@ -204,29 +190,15 @@ def test_mixed_addendum_covers_the_not_yet_clear_case():
     assert "not yet clear" in BRANCH_ADDENDA["mixed"]
 
 
-def test_closing_instruction_is_only_added_when_closing(verdict):
-    assert CLOSING_INSTRUCTION not in build_system_prompt("p", verdict, "belief")
-    closing = build_system_prompt("p", verdict, "belief", closing=True)
-    assert CLOSING_INSTRUCTION in closing
-    assert closing.index(CLOSING_INSTRUCTION) < closing.rindex(OPEN_TAG)
-    assert closing.rstrip().endswith(CLOSE_TAG)
 
 
-def test_closing_instruction_asks_for_a_warm_close_with_no_question():
-    assert "final message" in CLOSING_INSTRUCTION
-    assert "welcome to keep talking" in CLOSING_INSTRUCTION
-    assert "do not ask a further question" in CLOSING_INSTRUCTION
 
 
-def test_closing_instruction_connects_the_post_to_the_options_in_words():
-    assert "connect to the original post" in CLOSING_INSTRUCTION
-    assert "edit it, post it as it is" in CLOSING_INSTRUCTION
-    assert "do not name any button" in CLOSING_INSTRUCTION.lower()
 
 
 # --- stages ----------------------------------------------------------------
 
-ALL_NOTES = [LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE]
+ALL_NOTES = [LISTEN_NOTE, RETURN_TO_POST_NOTE, CLOSE_NOTE, CONTINUE_NOTE]
 
 
 def test_prompt_forbids_repeating_earlier_replies():
@@ -234,20 +206,10 @@ def test_prompt_forbids_repeating_earlier_replies():
     assert "every reply must move the conversation on" in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
-def test_no_phase_means_no_stage_note():
-    assert stage_note(None) is None
 
 
-def test_each_phase_has_its_own_note():
-    assert stage_note("listen") == LISTEN_NOTE
-    assert stage_note("return") == RETURN_TO_POST_NOTE
-    assert stage_note("continue") == CONTINUE_NOTE
 
 
-def test_listen_adds_something_new_and_leaves_the_post_alone_for_now():
-    assert "add something new" in LISTEN_NOTE
-    assert "Do not restate a reflection you already gave" in LISTEN_NOTE
-    assert "Do not bring the original post back up yourself yet" in LISTEN_NOTE
 
 
 def test_return_goes_back_to_the_original_post_in_emotional_terms():
@@ -272,68 +234,18 @@ def test_stage_notes_are_topic_neutral(note, word):
     assert word not in note.lower()
 
 
-@pytest.mark.parametrize(
-    "phase,note",
-    [
-        ("listen", LISTEN_NOTE),
-        ("return", RETURN_TO_POST_NOTE),
-        ("continue", CONTINUE_NOTE),
-    ],
-)
-def test_build_includes_exactly_the_stage_note_for_the_phase(verdict, phase, note):
-    prompt = build_system_prompt("my draft post", verdict, "grievance", phase=phase)
-    assert note in prompt
-    assert prompt.index(note) < prompt.rindex(OPEN_TAG)
-    for other in ALL_NOTES:
-        if other != note:
-            assert other not in prompt
 
 
-def test_build_appends_the_phase_examples_after_the_note(verdict, monkeypatch):
-    monkeypatch.setitem(EXAMPLES, "return", "Example: a sample exchange")
-    prompt = build_system_prompt("my draft post", verdict, "grievance", phase="return")
-    assert (
-        prompt.index(RETURN_TO_POST_NOTE)
-        < prompt.index("Example: a sample exchange")
-        < prompt.rindex(OPEN_TAG)
-    )
 
 
-def test_build_adds_no_examples_when_the_phase_has_none(verdict, monkeypatch):
-    monkeypatch.setitem(EXAMPLES, "listen", "")
-    prompt = build_system_prompt("my draft post", verdict, "grievance", phase="listen")
-    assert prompt.endswith(CLOSE_TAG)
-    assert f"{LISTEN_NOTE}\n\n<{CONTEXT_TAG}>" in prompt
 
 
-def test_examples_are_left_out_of_the_closing_and_disengage_prompts(verdict, monkeypatch):
-    monkeypatch.setitem(EXAMPLES, "continue", "Example: a sample exchange")
-    closing = build_system_prompt(
-        "my draft post", verdict, "belief", closing=True, phase="continue"
-    )
-    disengage = build_system_prompt(
-        "my draft post", verdict, "disengage", phase="continue"
-    )
-    assert "Example: a sample exchange" not in closing
-    assert "Example: a sample exchange" not in disengage
 
 
-def test_build_without_a_phase_has_no_stage_note(verdict):
-    prompt = build_system_prompt("my draft post", verdict, "grievance")
-    assert not any(note in prompt for note in ALL_NOTES)
 
 
-def test_the_closing_turn_has_no_stage_note(verdict):
-    prompt = build_system_prompt(
-        "my draft post", verdict, "belief", closing=True, phase="continue"
-    )
-    assert CLOSING_INSTRUCTION in prompt
-    assert not any(note in prompt for note in ALL_NOTES)
 
 
-def test_disengage_has_no_stage_note(verdict):
-    prompt = build_system_prompt("my draft post", verdict, "disengage", phase="return")
-    assert not any(note in prompt for note in ALL_NOTES)
 
 
 # --- reply language --------------------------------------------------------
@@ -362,26 +274,10 @@ def test_the_fallback_language_line_is_the_only_one_named(verdict):
     assert "reply in English" not in prompt
 
 
-def test_build_uses_the_localized_examples(verdict, monkeypatch):
-    monkeypatch.setitem(EXAMPLES_BY_LANGUAGE["fr"], "return", "Exemple : un echange")
-    prompt = build_system_prompt(
-        "my draft post", verdict, "grievance", phase="return", language="fr"
-    )
-    assert "Exemple : un echange" in prompt
-    assert EXAMPLES["return"] not in prompt
 
 
-def test_build_uses_the_localized_closing(verdict, monkeypatch):
-    monkeypatch.setitem(CLOSINGS, "de", "Schlussanweisung")
-    prompt = build_system_prompt(
-        "my draft post", verdict, "belief", closing=True, language="de"
-    )
-    assert "Schlussanweisung" in prompt
-    assert CLOSING_INSTRUCTION not in prompt
 
 
-def test_the_english_closing_is_the_closing_instruction():
-    assert CLOSINGS["en"] == CLOSING_INSTRUCTION
 
 
 # --- fixed messages --------------------------------------------------------
@@ -531,3 +427,107 @@ def test_classifier_prompt_covers_every_category(category):
 def test_classifier_prompt_treats_post_as_data():
     assert "<post>" in CLASSIFIER_SYSTEM_PROMPT
     assert "data to classify" in CLASSIFIER_SYSTEM_PROMPT
+
+
+# --- stable prompt and per-turn guidance -----------------------------------
+
+
+def test_the_system_prompt_takes_no_per_turn_state():
+    assert set(inspect.signature(build_system_prompt).parameters) == {
+        "post",
+        "verdict",
+        "user_name",
+        "language",
+    }
+
+
+@pytest.mark.parametrize("branch", BRANCHES)
+def test_build_includes_every_branch_in_its_own_tag_before_the_context(verdict, branch):
+    prompt = build_system_prompt("my draft post", verdict)
+    block = f'<branch name="{branch}">\n{BRANCH_ADDENDA[branch]}\n</branch>'
+    assert block in prompt
+    assert prompt.index(block) < prompt.rindex(OPEN_TAG)
+
+
+@pytest.mark.parametrize("phase", PHASES)
+def test_build_includes_every_stage_note_and_its_examples(verdict, phase):
+    prompt = build_system_prompt("my draft post", verdict)
+    note = f'<stage name="{phase}">\n{STAGE_NOTES[phase]}\n</stage>'
+    examples = f'<stage_examples name="{phase}">\n{EXAMPLES[phase]}\n</stage_examples>'
+    assert note in prompt
+    assert examples in prompt
+    assert prompt.index(note) < prompt.rindex(OPEN_TAG)
+    assert prompt.index(examples) < prompt.rindex(OPEN_TAG)
+
+
+def test_build_includes_the_selection_note(verdict):
+    assert SELECTION_NOTE in build_system_prompt("my draft post", verdict)
+    assert "<turn_guidance>" in SELECTION_NOTE
+
+
+def test_build_uses_the_localized_examples(verdict, monkeypatch):
+    monkeypatch.setitem(EXAMPLES_BY_LANGUAGE["fr"], "return", "Exemple : un echange")
+    prompt = build_system_prompt("my draft post", verdict, language="fr")
+    assert "Exemple : un echange" in prompt
+    assert EXAMPLES["return"] not in prompt
+
+
+@pytest.mark.parametrize("branch", BRANCHES)
+@pytest.mark.parametrize("phase", [*PHASES, None])
+def test_turn_guidance_names_sections_the_system_prompt_contains(verdict, branch, phase):
+    guidance = build_turn_guidance(branch, phase)
+    assert guidance.startswith("<turn_guidance>")
+    assert guidance.endswith("</turn_guidance>")
+    assert f"Active branch: {branch}" in guidance
+    prompt = build_system_prompt("my draft post", verdict)
+    assert f'<branch name="{branch}">' in prompt
+    if phase is None:
+        assert "No stage applies" in guidance
+    else:
+        assert f"Active stage: {phase}" in guidance
+        assert f'<stage name="{phase}">' in prompt
+        assert f'<stage_examples name="{phase}">' in prompt
+
+
+def test_turn_guidance_is_short():
+    assert len(build_turn_guidance("belief", "listen").split()) < 30
+
+
+def test_close_note_asks_for_a_warm_close_with_no_question():
+    assert "closes the guided part of the conversation" in CLOSE_NOTE
+    assert "welcome to keep talking" in CLOSE_NOTE
+    assert "do not ask a further question" in CLOSE_NOTE
+
+
+def test_close_note_hands_the_decision_back_without_listing_options():
+    assert "the decision about it is theirs" in CLOSE_NOTE
+    assert "do not list them, do not name any button" in CLOSE_NOTE
+    assert "edit it, post it as it is" not in CLOSE_NOTE
+
+
+# --- repeated rules are stated once ----------------------------------------
+
+
+@pytest.mark.parametrize("branch", ["grievance", "joke"])
+def test_addenda_that_name_the_soft_observation_do_not_restate_its_rule(branch):
+    text = BRANCH_ADDENDA[branch]
+    assert "I wonder if" in text
+    assert "with no check" not in text
+    assert "never followed by a check" not in text
+
+
+@pytest.mark.parametrize("branch", ["belief", "mixed"])
+def test_generic_addenda_leave_the_soft_observation_to_the_base_prompt(branch):
+    assert "I wonder if" not in BRANCH_ADDENDA[branch]
+
+
+def test_listen_adds_something_new_and_leaves_the_post_alone_for_now():
+    assert "add something new" in LISTEN_NOTE
+    assert "Do not bring the original post back up yourself yet" in LISTEN_NOTE
+    assert "Do not restate a reflection you already gave" not in LISTEN_NOTE
+    assert "Do not ask check-ins" not in LISTEN_NOTE
+
+
+def test_the_base_prompt_names_the_closing_as_a_place_the_post_comes_back():
+    assert "is the one place you bring the post's words back" not in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "The return question and the closing reply are the two places" in SUPPORT_CHAT_SYSTEM_PROMPT

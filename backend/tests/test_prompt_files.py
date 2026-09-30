@@ -23,9 +23,9 @@ def test_prompts_dir_is_the_prompts_package():
 
 
 def test_load_prompt_drops_trailing_newlines_only():
-    text = load_prompt("chat/locales/en/closing.md")
+    text = load_prompt("chat/base.md")
     assert not text.endswith("\n")
-    assert text.startswith("This is your final message")
+    assert text.startswith("You are an AI chat assistant")
 
 
 def test_load_prompt_fails_fast_on_a_missing_file():
@@ -143,7 +143,8 @@ def test_every_phase_has_examples():
     "rel",
     [
         "chat/base.md",
-        "chat/locales/en/closing.md",
+        "chat/reply_language.md",
+        "chat/selection.md",
         "chat/locales/en/opening.md",
         "chat/branches.md",
         "chat/stages.md",
@@ -165,10 +166,11 @@ def test_no_section_is_empty(rel):
 
 def test_module_constants_come_from_the_files():
     assert support_chat.SUPPORT_CHAT_SYSTEM_PROMPT == load_prompt("chat/base.md")
-    assert support_chat.CLOSING_INSTRUCTION == load_prompt("chat/locales/en/closing.md")
+    assert support_chat.SELECTION_NOTE == load_prompt("chat/selection.md")
     stages = load_sections("chat/stages.md")
     assert support_chat.LISTEN_NOTE == stages["listen"]
     assert support_chat.RETURN_TO_POST_NOTE == stages["return"]
+    assert support_chat.CLOSE_NOTE == stages["close"]
     assert support_chat.CONTINUE_NOTE == stages["continue"]
     assert router.ROUTER_SYSTEM_PROMPT == load_prompt("router.md")
     assert classifier.CLASSIFIER_SYSTEM_PROMPT == load_prompt("classifier.md")
@@ -176,3 +178,79 @@ def test_module_constants_come_from_the_files():
 
 def test_base_prompt_names_the_context_block_by_its_tag():
     assert f"<{CONTEXT_TAG}>" in load_prompt("chat/base.md")
+
+
+def test_reply_language_file_has_the_language_placeholder():
+    assert "{language}" in load_prompt("chat/reply_language.md")
+
+
+@pytest.mark.parametrize("language", get_args(Language))
+def test_no_locale_folder_carries_instructions(language):
+    names = {p.name for p in (PROMPTS_DIR / "chat" / "locales" / language).glob("*.md")}
+    assert names == {"examples.md", "opening.md", "opening_named.md"}
+
+
+STOCK_PHRASES = [
+    "the thing is",
+    "phrasing your post like this",
+    "i understand where you're coming from",
+    "myth",
+    "not a proven fact",
+]
+EXPECTED_EXAMPLE_COUNTS = {"listen": 5, "return": 5, "close": 3, "continue": 5}
+
+
+def _examples_text(language):
+    return load_sections(f"chat/locales/{language}/examples.md")
+
+
+def test_english_example_counts_per_section():
+    sections = _examples_text("en")
+    assert {n: t.count("<example>") for n, t in sections.items()} == EXPECTED_EXAMPLE_COUNTS
+
+
+@pytest.mark.parametrize("phrase", STOCK_PHRASES)
+def test_english_examples_avoid_stock_phrases_and_fact_corrections(phrase):
+    text = "\n".join(_examples_text("en").values()).lower()
+    assert phrase not in text
+
+
+def test_kill_all_the_jews_is_the_post_of_only_one_example():
+    text = "\n".join(_examples_text("en").values())
+    assert text.count("<post>kill all the jews</post>") == 1
+
+
+@pytest.mark.parametrize("language", ["ar", "de", "fr"])
+def test_locale_examples_have_the_same_count_per_section_as_english(language):
+    sections = _examples_text(language)
+    assert {n: t.count("<example>") for n, t in sections.items()} == EXPECTED_EXAMPLE_COUNTS
+
+
+def test_continue_examples_each_start_from_a_closing_message():
+    continue_section = _examples_text("en")["continue"]
+    assert continue_section.count("<earlier>") == continue_section.count("<example>")
+
+
+def _examples_section(name):
+    return _examples_text("en")[name]
+
+
+def test_closing_messages_do_not_share_the_same_decision_sentence():
+    import re
+
+    closing = re.findall(r"<reply>(.*?)</reply>", _examples_section("close"))
+    earlier = re.findall(r"<earlier>(.*?)</earlier>", _examples_section("continue"))
+    messages = closing + earlier
+    assert len(messages) == 8
+    assert not [m for m in messages if "what happens with" in m.lower()]
+
+
+def test_continue_earlier_messages_do_not_all_open_with_thanks():
+    import re
+
+    earlier = re.findall(r"<earlier>(.*?)</earlier>", _examples_section("continue"))
+    assert sum(m.removeprefix("Assistant: ").startswith("Thank") for m in earlier) <= 2
+
+
+def test_continue_examples_use_no_detail_the_example_never_gave():
+    assert "three people" not in _examples_section("continue")

@@ -6,10 +6,10 @@ from app.schemas import Branch, Language, Verdict
 CONTEXT_TAG = "flagged_post_context"
 
 # The prompt text lives in plain files under chat/ so it can be edited without touching
-# Python: base.md, branches.md and stages.md, which are shared by every language. The
-# branches, stages and examples files split into one "## name" section per branch or phase.
-# The opening, examples and closing are written per language under chat/locales/<language>/,
-# and the English file stands in for any that are missing.
+# Python: base.md, branches.md, stages.md, reply_language.md and selection.md, which are
+# shared by every language. The branches, stages and examples files split into one "## name"
+# section per branch or phase. Only the opening and the examples are written per language
+# under chat/locales/<language>/, and the English file stands in for any that are missing.
 LANGUAGES: tuple[Language, ...] = get_args(Language)
 LANGUAGE_NAMES: dict[Language, str] = {
     "en": "English",
@@ -45,26 +45,25 @@ def opening_for(language: Language, user_name: str | None = None) -> str:
 
 
 SUPPORT_CHAT_SYSTEM_PROMPT = load_prompt("chat/base.md")
+SELECTION_NOTE = load_prompt("chat/selection.md")
+REPLY_LANGUAGE_NOTE = load_prompt("chat/reply_language.md")
 
 # One addendum per branch. "mixed" is also the default when the router cannot decide.
 _BRANCH_SECTIONS = load_sections("chat/branches.md")
 BRANCH_ADDENDA: dict[Branch, str] = {branch: _BRANCH_SECTIONS[branch] for branch in get_args(Branch)}
 
-# Stage guidance, chosen by the conversation phase the server works out each turn.
-Phase = Literal["listen", "return", "continue"]
+# Stage guidance, chosen each turn by the conversation phase the server works out.
+Phase = Literal["listen", "return", "close", "continue"]
 
 _STAGE_SECTIONS = load_sections("chat/stages.md")
-LISTEN_NOTE = _STAGE_SECTIONS["listen"]
-RETURN_TO_POST_NOTE = _STAGE_SECTIONS["return"]
-CONTINUE_NOTE = _STAGE_SECTIONS["continue"]
+STAGE_NOTES: dict[Phase, str] = {phase: _STAGE_SECTIONS[phase] for phase in get_args(Phase)}
+LISTEN_NOTE = STAGE_NOTES["listen"]
+RETURN_TO_POST_NOTE = STAGE_NOTES["return"]
+CLOSE_NOTE = STAGE_NOTES["close"]
+CONTINUE_NOTE = STAGE_NOTES["continue"]
 
-_NOTES: dict[Phase, str] = {
-    "listen": LISTEN_NOTE,
-    "return": RETURN_TO_POST_NOTE,
-    "continue": CONTINUE_NOTE,
-}
 
-# Worked examples for each phase, appended after its stage note (empty section = none).
+# Worked examples for each phase, per language.
 def _examples(language: Language) -> dict[Phase, str]:
     sections = load_sections(localized_path("chat/examples.md", language))
     return {phase: sections[phase] for phase in get_args(Phase)}
@@ -76,54 +75,39 @@ EXAMPLES_BY_LANGUAGE: dict[Language, dict[Phase, str]] = {
 }
 
 
-def stage_note(phase: Phase | None) -> str | None:
-    """Stage guidance for the phase, or None when there is no phase."""
-    return _NOTES.get(phase) if phase else None
-
-
-CLOSINGS: dict[Language, str] = {
-    language: load_prompt(localized_path("chat/closing.md", language)) for language in LANGUAGES
-}
-CLOSING_INSTRUCTION = CLOSINGS["en"]
-
-
 def reply_language_note(language: Language) -> str:
-    return (
-        "Reply in the language the person wrote their latest message in, idiomatic as a "
-        "native speaker would write it and in that language's own script. If it is unclear, "
-        f"or they haven't written yet, reply in {LANGUAGE_NAMES[language]}. "
-        "The rules above apply unchanged."
-    )
+    return REPLY_LANGUAGE_NOTE.replace("{language}", LANGUAGE_NAMES[language])
+
+
+def _tagged(tag: str, name: str, body: str) -> str:
+    return f'<{tag} name="{name}">\n{body}\n</{tag}>'
 
 
 def build_system_prompt(
     post: str,
     verdict: Verdict,
-    branch: Branch = "mixed",
-    closing: bool = False,
-    phase: Phase | None = None,
     user_name: str | None = None,
     language: Language = "en",
 ) -> str:
+    """The prompt that stays the same for a whole conversation, so it can be cached."""
     # Strip the closing tag from user text so a post cannot break out of the block.
     safe_post = post.replace(f"</{CONTEXT_TAG}>", "")
     # The name goes on one line, so collapse any newlines and drop the closing tag too.
     safe_name = _clean_name(user_name)
     name_line = f"Person's name: {safe_name}\n" if safe_name else ""
+    branches = "\n\n".join(_tagged("branch", b, BRANCH_ADDENDA[b]) for b in get_args(Branch))
+    stages = "\n\n".join(_tagged("stage", p, STAGE_NOTES[p]) for p in get_args(Phase))
+    examples = "\n\n".join(
+        _tagged("stage_examples", p, EXAMPLES_BY_LANGUAGE[language][p]) for p in get_args(Phase)
+    )
     sections = [
         SUPPORT_CHAT_SYSTEM_PROMPT,
         reply_language_note(language),
-        BRANCH_ADDENDA[branch],
+        SELECTION_NOTE,
+        f"<branches>\n{branches}\n</branches>",
+        f"<stages>\n{stages}\n</stages>",
+        examples,
     ]
-    # The close and the disengage branch have their own instructions, so no stage note.
-    note = None if closing or branch == "disengage" else stage_note(phase)
-    if note:
-        sections.append(note)
-        examples = EXAMPLES_BY_LANGUAGE[language].get(phase)
-        if examples:
-            sections.append(examples)
-    if closing:
-        sections.append(CLOSINGS[language])
     return (
         "\n\n".join(sections)
         + "\n\n"
@@ -135,3 +119,9 @@ def build_system_prompt(
         + f"Reason: {verdict.reason}\n"
         + f"</{CONTEXT_TAG}>"
     )
+
+
+def build_turn_guidance(branch: Branch, phase: Phase | None) -> str:
+    """The few lines that change every turn: which branch and stage are active."""
+    stage = f"Active stage: {phase}" if phase else "No stage applies on this turn."
+    return f"<turn_guidance>\nActive branch: {branch}\n{stage}\n</turn_guidance>"

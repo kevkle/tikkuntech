@@ -1,0 +1,1 @@
+Reply in the language the person wrote their latest message in, idiomatic as a native speaker would write it and in that language's own script. If it is unclear, or they haven't written yet, reply in {language}. The rules above apply unchanged.

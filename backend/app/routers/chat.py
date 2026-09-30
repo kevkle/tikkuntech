@@ -11,7 +11,7 @@ from app.config import load_settings
 from app.llm import get_chat_llm, get_router_llm
 from app.logging_config import describe_error
 from app.prompts.router import ROUTER_SYSTEM_PROMPT, build_router_input
-from app.prompts.support_chat import Phase, build_system_prompt, opening_for
+from app.prompts.support_chat import Phase, build_system_prompt, build_turn_guidance, opening_for
 from app.schemas import Branch, ChatRequest, RouteVerdict
 
 logger = logging.getLogger("app.chat")
@@ -70,7 +70,7 @@ def _static(text: str) -> StreamingResponse:
     )
 
 
-ChatPhase = Phase | Literal["close"]
+ChatPhase = Phase
 
 
 def _phase(
@@ -136,9 +136,10 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         )
         raise HTTPException(status_code=503, detail="Chat is not configured")
 
+    # The post's own language wins; the picker only decides when it is unknown.
+    language = req.verdict.language or req.language
     if not req.history:
-        # The post's own language wins; the picker only decides when it is unknown.
-        opening = opening_for(req.verdict.language or req.language, req.user_name)
+        opening = opening_for(language, req.user_name)
         _log_transcript("opening", None, 1, None, opening)
         return _static(opening)
 
@@ -165,19 +166,32 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     system = build_system_prompt(
         req.post,
         req.verdict,
-        branch,
-        # The disengage branch has no option buttons; it only gets the warm close at the cap.
-        closing=phase == "close" or (branch == "disengage" and bot_turn >= MAX_BOT_TURNS),
-        phase=None if phase == "close" else phase,
         user_name=req.user_name,
-        language=req.language,
+        language=language,
     )
-    messages = [SystemMessage(content=system)]
-    for m in req.history:
-        if m.role == "user":
-            messages.append(HumanMessage(content=m.text))
-        else:
+    guidance = build_turn_guidance(branch, phase)
+    # The system prompt is one block that never changes within a conversation, marked so the
+    # provider can cache it. The per-turn guidance rides on the last user message.
+    messages = [
+        SystemMessage(
+            content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+        )
+    ]
+    last = len(req.history) - 1
+    for i, m in enumerate(req.history):
+        if m.role == "ai":
             messages.append(AIMessage(content=m.text))
+        elif i == last:
+            messages.append(
+                HumanMessage(
+                    content=[
+                        {"type": "text", "text": m.text},
+                        {"type": "text", "text": guidance},
+                    ]
+                )
+            )
+        else:
+            messages.append(HumanMessage(content=m.text))
 
     # Pull the first chunk before responding so a failure to start becomes a 502.
     # Apart from the transcript line written when the stream ends (or is cut off), only

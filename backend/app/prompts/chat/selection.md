@@ -1,0 +1,1 @@
+Each turn ends with a <turn_guidance> note naming the active branch and stage. Follow only the guidance for the branch and stage it names, and use only the examples for that stage. The guidance for other branches and stages is included so this prompt stays the same for the whole conversation; it does not apply now.
