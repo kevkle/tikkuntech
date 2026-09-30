@@ -15,7 +15,7 @@ POST = f"you are awful {MARKER}"
 @pytest.fixture(autouse=True)
 def router(no_real_llm, set_router):
     return set_router(
-        FakeClassifier(RouteVerdict(branch="mixed", reason="x", ready=False))
+        FakeClassifier(RouteVerdict(branch="default", reason="x"))
     )
 
 
@@ -193,10 +193,10 @@ def test_router_reason_is_only_logged_by_the_transcript_logger(
 ):
     caplog.set_level(logging.DEBUG)
     set_chat(FakeChat(["ok"]))
-    router.result = RouteVerdict(branch="joke", reason=f"quotes {MARKER}", ready=False)
+    router.result = RouteVerdict(branch="default", reason=f"quotes {MARKER}")
     client.post("/chat", json=chat_body(verdict_json))
 
-    assert "chat: routed branch=joke" in caplog.text
+    assert "chat: routed branch=default" in caplog.text
     assert MARKER not in text_outside_transcript(caplog)
     transcript = [r.getMessage() for r in caplog.records if r.name == "app.transcript"]
     assert len(transcript) == 1 and MARKER in transcript[0]

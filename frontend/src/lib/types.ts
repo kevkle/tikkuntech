@@ -18,7 +18,7 @@ export type Message = {
 export type Language = "en" | "ar" | "fr" | "de";
 
 // Mirrors backend/app/schemas.py Branch
-export type Branch = "belief" | "grievance" | "joke" | "mixed" | "disengage";
+export type Branch = "default" | "disengage";
 
 // Mirrors backend/app/schemas.py Verdict
 export type Category =

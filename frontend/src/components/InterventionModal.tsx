@@ -62,9 +62,12 @@ export function InterventionModal({
 
   if (!isOpen) return null;
 
+  // The menu message is the last one: after it only the option buttons are left.
+  const chatEnded = menuBranch !== null;
+
   const handleSend = (raw: string) => {
     const text = raw.trim();
-    if (!text || isStreaming) return;
+    if (!text || isStreaming || chatEnded) return;
     setInput("");
     onSendMessage(text);
   };
@@ -230,13 +233,13 @@ export function InterventionModal({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend(input)}
-            disabled={isStreaming}
+            disabled={isStreaming || chatEnded}
             placeholder={t("inputPlaceholder")}
             className="flex-1 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm text-white placeholder-slate-400 focus:border-indigo-300/60 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 disabled:opacity-60"
           />
           <button
             onClick={() => handleSend(input)}
-            disabled={isStreaming || !input.trim()}
+            disabled={isStreaming || chatEnded || !input.trim()}
             className="rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-40"
           >
             {t("send")}

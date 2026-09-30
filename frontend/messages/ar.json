@@ -24,8 +24,8 @@
     "close": "إغلاق ومتابعة تعديل منشوري",
     "typing": "المساعد يكتب",
     "yourCall": "في أي وقت تكون جاهزًا. القرار لك.",
-    "editPost": "تعديل منشوري",
-    "postAsIs": "نشره كما هو",
+    "editPost": "تعديله",
+    "postAsIs": "نشره",
     "inputPlaceholder": "اكتب ردك...",
     "send": "إرسال",
     "deletePost": "حذف المنشور",
@@ -43,8 +43,8 @@
   },
   "resources": {
     "kinds": {
-      "learn": "اعرف المزيد",
-      "talk": "تحدّث مع الآخرين"
+      "learn": "حفظه لوقت لاحق",
+      "talk": "حذفه"
     },
     "learn": {
       "placeholder": {

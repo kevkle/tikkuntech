@@ -1,12 +1,8 @@
 import type { Branch, Language, Message, Verdict } from "./types";
 
-const BRANCHES: readonly string[] = ["belief", "grievance", "joke", "mixed", "disengage"];
-
-export type ChatPhase = "return" | "close";
+const BRANCHES: readonly string[] = ["default", "disengage"];
 
 export type ChatResult = {
-  // The stage of this reply, to send back with the next request.
-  phase: ChatPhase | null;
   // Set when the reply was the closing message: the branch decides which extras to offer.
   menu: Branch | null;
 };
@@ -31,7 +27,6 @@ export async function streamChat(
   post: string,
   verdict: Verdict,
   history: Message[],
-  lastPhase: ChatPhase | null,
   userName: string,
   language: Language,
   onDelta: (delta: string) => void,
@@ -44,8 +39,6 @@ export async function streamChat(
       post,
       verdict,
       history: history.map(({ role, text }) => ({ role, text })),
-      // The stage of the last bot message, so the server knows what comes next.
-      last_phase: lastPhase,
       user_name: userName,
       language,
     }),
@@ -55,8 +48,6 @@ export async function streamChat(
 
   const menuHeader = res.headers.get("x-chat-menu") ?? "";
   const menu = BRANCHES.includes(menuHeader) ? (menuHeader as Branch) : null;
-  const phaseHeader = res.headers.get("x-chat-phase");
-  const phase = phaseHeader === "return" || phaseHeader === "close" ? phaseHeader : null;
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -67,5 +58,5 @@ export async function streamChat(
   }
   const tail = decoder.decode();
   if (tail) onDelta(tail);
-  return { phase, menu };
+  return { menu };
 }

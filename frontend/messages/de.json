@@ -24,8 +24,8 @@
     "close": "Schließen und meinen Beitrag weiter bearbeiten",
     "typing": "Der Assistent schreibt",
     "yourCall": "Wann immer du bereit bist. Du entscheidest.",
-    "editPost": "Beitrag bearbeiten",
-    "postAsIs": "So posten",
+    "editPost": "Bearbeiten",
+    "postAsIs": "Posten",
     "inputPlaceholder": "Schreib deine Antwort...",
     "send": "Senden",
     "deletePost": "Beitrag löschen",
@@ -43,8 +43,8 @@
   },
   "resources": {
     "kinds": {
-      "learn": "Mehr erfahren",
-      "talk": "Mit anderen sprechen"
+      "learn": "Für später speichern",
+      "talk": "Löschen"
     },
     "learn": {
       "placeholder": {

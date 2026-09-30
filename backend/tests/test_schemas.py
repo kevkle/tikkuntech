@@ -56,32 +56,24 @@ def test_verdict_requires_all_fields():
 # --- RouteVerdict ----------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "branch", ["belief", "grievance", "joke", "mixed", "disengage"]
-)
+@pytest.mark.parametrize("branch", ["default", "disengage"])
 def test_route_verdict_accepts_every_branch(branch):
-    assert RouteVerdict(branch=branch, reason="x", ready=False).branch == branch
+    assert RouteVerdict(branch=branch, reason="x").branch == branch
 
 
-@pytest.mark.parametrize("branch", ["angry", "unclear", "crisis"])
+@pytest.mark.parametrize("branch", ["angry", "belief", "mixed", "unclear", "crisis"])
 def test_route_verdict_rejects_unknown_branch(branch):
     with pytest.raises(ValidationError):
-        RouteVerdict(branch=branch, reason="x", ready=False)
+        RouteVerdict(branch=branch, reason="x")
 
 
-def test_route_verdict_requires_ready():
-    with pytest.raises(ValidationError):
-        RouteVerdict(branch="joke", reason="x")
-
-
-@pytest.mark.parametrize("ready", [True, False])
-def test_route_verdict_keeps_ready(ready):
-    assert RouteVerdict(branch="joke", reason="x", ready=ready).ready is ready
+def test_route_verdict_has_no_ready_field():
+    assert "ready" not in RouteVerdict.model_fields
 
 
 def test_route_verdict_requires_all_fields():
     with pytest.raises(ValidationError):
-        RouteVerdict(branch="joke")
+        RouteVerdict(branch="default")
 
 
 # --- ClassifyRequest -------------------------------------------------------
@@ -105,18 +97,8 @@ def test_chat_request_allows_empty_history():
     assert ChatRequest(**chat_dict()).history == []
 
 
-def test_chat_request_last_phase_defaults_to_none():
-    assert ChatRequest(**chat_dict()).last_phase is None
-
-
-@pytest.mark.parametrize("phase", ["return", "close"])
-def test_chat_request_accepts_a_last_phase(phase):
-    assert ChatRequest(**chat_dict(last_phase=phase)).last_phase == phase
-
-
-def test_chat_request_rejects_an_unknown_last_phase():
-    with pytest.raises(ValidationError):
-        ChatRequest(**chat_dict(last_phase="listen"))
+def test_chat_request_has_no_last_phase_field():
+    assert "last_phase" not in ChatRequest.model_fields
 
 
 def test_chat_request_user_name_defaults_to_none():

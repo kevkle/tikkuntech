@@ -1,8 +1,6 @@
 import logging
 import time
 
-from typing import Literal
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -20,12 +18,9 @@ transcript = logging.getLogger("app.transcript")
 
 router = APIRouter()
 
-# The fixed opening is bot message 1, so the 8th bot message is the warm close.
-MAX_BOT_TURNS = 8
-# The return to the post (and the option buttons) happens when the router says the person
-# is ready, from bot message MENU_MIN_TURN on, and at the latest on MENU_FALLBACK_TURN.
-MENU_MIN_TURN = 3
-MENU_FALLBACK_TURN = 6
+# The fixed opening is bot message 1, message 2 reflects and message 3 closes with the
+# option buttons. The chat ends there.
+MAX_BOT_TURNS = 3
 FALLBACK_REASON = "fallback: router unavailable"
 STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
@@ -43,17 +38,20 @@ def _log_transcript(
     branch: str,
     reason: str | None,
     turn: int,
+    post: str,
     user_text: str | None,
     bot_text: str,
     partial: bool = False,
 ) -> None:
     # %r keeps each exchange on one line even when the text has newlines. The router's
     # reason is model-written and can quote the person, so it lives here and nowhere else.
+    # The original post rides on every line so an exchange can be read without the request.
     # partial=True marks a reply that was cut off: the text is what had streamed so far.
     transcript.info(
-        "transcript: branch=%s turn=%d reason=%r user=%r bot=%r%s",
+        "transcript: branch=%s turn=%d post=%r reason=%r user=%r bot=%r%s",
         branch,
         turn,
+        post,
         reason,
         user_text,
         bot_text,
@@ -73,27 +71,15 @@ def _static(text: str) -> StreamingResponse:
 ChatPhase = Phase
 
 
-def _phase(
-    branch: Branch,
-    ready: bool,
-    bot_turn: int,
-    last_phase: Literal["return", "close"] | None,
-) -> ChatPhase | None:
-    """Where the conversation is: listening, returning to the post, closing with the
-    options, or past the close."""
+def _phase(branch: Branch, bot_turn: int) -> ChatPhase | None:
+    """Where the conversation is: reflecting on the answer, or closing with the options."""
     if branch == "disengage":
         return None
-    if last_phase == "close":
-        return "continue"
-    if last_phase == "return" or bot_turn >= MAX_BOT_TURNS:
-        return "close"
-    if bot_turn >= MENU_MIN_TURN and (ready or bot_turn >= MENU_FALLBACK_TURN):
-        return "return"
-    return "listen"
+    return "close" if bot_turn >= MAX_BOT_TURNS else "reflect"
 
 
-async def _route(req: ChatRequest) -> tuple[Branch, bool, str]:
-    """Pick the branch, readiness and the router's reason; 'mixed', not ready if routing fails."""
+async def _route(req: ChatRequest) -> tuple[Branch, str]:
+    """Pick the branch and the router's reason; 'default' if routing fails."""
     started = time.perf_counter()
     try:
         verdict = await get_router_llm().ainvoke(
@@ -104,25 +90,24 @@ async def _route(req: ChatRequest) -> tuple[Branch, bool, str]:
         )
     except Exception as exc:
         logger.warning(
-            "chat: router failed, using mixed after %.2fs: %s",
+            "chat: router failed, using default after %.2fs: %s",
             time.perf_counter() - started,
             describe_error(exc),
         )
         logger.debug("chat: traceback", exc_info=True)
-        return "mixed", False, FALLBACK_REASON
+        return "default", FALLBACK_REASON
     if not isinstance(verdict, RouteVerdict):
         logger.warning(
-            "chat: router returned unexpected type=%s, using mixed",
+            "chat: router returned unexpected type=%s, using default",
             type(verdict).__name__,
         )
-        return "mixed", False, FALLBACK_REASON
+        return "default", FALLBACK_REASON
     logger.info(
-        "chat: routed branch=%s ready=%s latency=%.2fs",
+        "chat: routed branch=%s latency=%.2fs",
         verdict.branch,
-        verdict.ready,
         time.perf_counter() - started,
     )
-    return verdict.branch, verdict.ready, verdict.reason
+    return verdict.branch, verdict.reason
 
 
 @router.post("/chat")
@@ -140,25 +125,20 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     language = req.verdict.language or req.language
     if not req.history:
         opening = opening_for(language, req.user_name)
-        _log_transcript("opening", None, 1, None, opening)
+        _log_transcript("opening", None, 1, req.post, None, opening)
         return _static(opening)
 
-    branch, ready, reason = await _route(req)
     bot_turn = sum(m.role == "ai" for m in req.history) + 1
-    phase = _phase(branch, ready, bot_turn, req.last_phase)
-    logger.info(
-        "chat: phase=%s ready=%s turn=%d last_phase=%s",
-        phase,
-        ready,
-        bot_turn,
-        req.last_phase,
-    )
-    # The client echoes the stage back next turn, and shows the option buttons from the
-    # close on, so they arrive with the message that introduces them.
+    if bot_turn > MAX_BOT_TURNS:
+        raise HTTPException(status_code=409, detail="The conversation is over")
+
+    branch, reason = await _route(req)
+    phase = _phase(branch, bot_turn)
+    logger.info("chat: phase=%s turn=%d", phase, bot_turn)
+    # The client shows the option buttons from the close on, so they arrive with the
+    # message that introduces them.
     headers = dict(STREAM_HEADERS)
-    if phase in ("return", "close"):
-        headers["X-Chat-Phase"] = phase
-    if phase in ("close", "continue"):
+    if phase == "close":
         headers["X-Chat-Menu"] = branch
 
     model = settings.chat_model
@@ -259,6 +239,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 branch,
                 reason,
                 bot_turn,
+                req.post,
                 req.history[-1].text,
                 "".join(parts),
                 partial=not finished,

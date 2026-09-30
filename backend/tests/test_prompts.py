@@ -1,4 +1,5 @@
 import inspect
+import re
 
 import pytest
 
@@ -8,14 +9,12 @@ from app.prompts.support_chat import (
     BRANCH_ADDENDA,
     CLOSE_NOTE,
     CONTEXT_TAG,
-    CONTINUE_NOTE,
     EXAMPLES,
     EXAMPLES_BY_LANGUAGE,
     FIXED_OPENING,
-    LISTEN_NOTE,
     OPENINGS,
     OPENINGS_NAMED,
-    RETURN_TO_POST_NOTE,
+    REFLECT_NOTE,
     SELECTION_NOTE,
     STAGE_NOTES,
     SUPPORT_CHAT_SYSTEM_PROMPT,
@@ -28,8 +27,8 @@ from app.schemas import ChatMessage
 OPEN_TAG = f"<{CONTEXT_TAG}>"
 CLOSE_TAG = f"</{CONTEXT_TAG}>"
 
-BRANCHES = ["belief", "grievance", "joke", "mixed", "disengage"]
-PHASES = ["listen", "return", "close", "continue"]
+BRANCHES = ["default", "disengage"]
+PHASES = ["reflect", "close"]
 
 
 # --- support chat prompt ---------------------------------------------------
@@ -101,19 +100,21 @@ def test_prompt_names_no_region_specific_numbers():
 
 def test_prompt_states_the_shared_conduct_rules():
     assert "never claim to be human" in SUPPORT_CHAT_SYSTEM_PROMPT
-    assert "1-2 short sentences" in SUPPORT_CHAT_SYSTEM_PROMPT
-    assert "about 30 words" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "2 short sentences" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "about 45 words at most" in SUPPORT_CHAT_SYSTEM_PROMPT
     assert "retraction" in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
-def test_prompt_bans_stating_a_stance():
-    assert "Never state your own opinion or disagreement" in SUPPORT_CHAT_SYSTEM_PROMPT
-    assert "I don't see it that way" in SUPPORT_CHAT_SYSTEM_PROMPT
-    assert "call to violence or hate" in SUPPORT_CHAT_SYSTEM_PROMPT
+def test_prompt_never_labels_the_person_or_the_post():
+    assert "Never tell the person they are wrong, racist, or bad" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "never say the post is hateful or harmful" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "Do not state your own opinion about people or politics" in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
-def test_prompt_allows_one_tentative_observation():
-    assert 'starts with "I wonder if"' in SUPPORT_CHAT_SYSTEM_PROMPT
+def test_prompt_describes_the_three_message_structure():
+    assert "Motivational Interviewing" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert 'Message 2 (stage "reflect")' in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert 'Message 3 (stage "close")' in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
 def test_prompt_no_longer_invites_the_bot_to_share_its_view():
@@ -146,8 +147,6 @@ def test_no_addendum_has_the_bot_share_how_it_landed(branch):
     assert "with permission" not in text
 
 
-
-
 TARGET_OR_SOLUTION_PHRASES = [
     "who they blame",
     "who do you have in mind",
@@ -165,19 +164,9 @@ def test_no_addendum_asks_about_targets_solutions_or_facts(branch, phrase):
     assert phrase not in BRANCH_ADDENDA[branch]
 
 
-def test_prompt_keeps_questions_on_feelings_and_values():
-    assert "what justice or safety means to them" in SUPPORT_CHAT_SYSTEM_PROMPT
+def test_prompt_keeps_questions_off_blame_and_solutions():
     assert "Never ask who they blame" in SUPPORT_CHAT_SYSTEM_PROMPT
     assert "solutions, plans, or consequences" in SUPPORT_CHAT_SYSTEM_PROMPT
-
-
-def test_prompt_says_not_to_argue_with_the_view():
-    # "challenge", not "question": the return-to-post question is allowed curiosity.
-    assert "Do not argue with, correct, or challenge their view" in SUPPORT_CHAT_SYSTEM_PROMPT
-
-
-def test_grievance_addendum_asks_what_justice_means_to_them():
-    assert "what justice or fairness means to them" in BRANCH_ADDENDA["grievance"]
 
 
 def test_disengage_wording_matches_the_routers_narrow_definition():
@@ -186,44 +175,30 @@ def test_disengage_wording_matches_the_routers_narrow_definition():
     assert "only send insults or bait" not in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
-def test_mixed_addendum_covers_the_not_yet_clear_case():
-    assert "not yet clear" in BRANCH_ADDENDA["mixed"]
-
-
-
-
-
-
-
-
 # --- stages ----------------------------------------------------------------
 
-ALL_NOTES = [LISTEN_NOTE, RETURN_TO_POST_NOTE, CLOSE_NOTE, CONTINUE_NOTE]
+ALL_NOTES = [REFLECT_NOTE, CLOSE_NOTE]
 
 
-def test_prompt_forbids_repeating_earlier_replies():
-    assert "Never begin two replies the same way" in SUPPORT_CHAT_SYSTEM_PROMPT
-    assert "every reply must move the conversation on" in SUPPORT_CHAT_SYSTEM_PROMPT
+def test_reflect_affirms_then_states_the_gap_without_a_question():
+    assert "write two sentences and no question" in REFLECT_NOTE
+    assert "Affirm:" in REFLECT_NOTE
+    assert "Discrepancy:" in REFLECT_NOTE
+    assert "neutrally and objectively" in REFLECT_NOTE
+    assert "not about the person" in REFLECT_NOTE
 
 
+def test_close_acknowledges_then_hooks_without_a_question():
+    assert "write two sentences and no question" in CLOSE_NOTE
+    assert "Acknowledge their stance" in CLOSE_NOTE
+    assert "Hook:" in CLOSE_NOTE
+    assert "Do not tell them what to do with the post" in CLOSE_NOTE
 
 
-
-
-
-
-def test_return_goes_back_to_the_original_post_in_emotional_terms():
-    assert "go back to the original post" in RETURN_TO_POST_NOTE
-    assert "emotional terms only" in RETURN_TO_POST_NOTE
-    assert "blame, politics, or what should happen" in RETURN_TO_POST_NOTE
-
-
-def test_return_note_does_not_mention_options_that_are_not_shown_yet():
-    assert "No options are shown yet" in RETURN_TO_POST_NOTE
-
-
-def test_continue_note_leaves_the_options_to_the_interface():
-    assert "do not list them or mention buttons" in CONTINUE_NOTE
+def test_close_note_leaves_the_options_to_the_interface():
+    assert "do not list them, do not mention buttons" in CLOSE_NOTE
+    assert "do not ask what they will do" in CLOSE_NOTE
+    assert "edit it, post it as it is" not in CLOSE_NOTE
 
 
 @pytest.mark.parametrize("note", ALL_NOTES)
@@ -232,20 +207,6 @@ def test_continue_note_leaves_the_options_to_the_interface():
 )
 def test_stage_notes_are_topic_neutral(note, word):
     assert word not in note.lower()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # --- reply language --------------------------------------------------------
@@ -370,16 +331,13 @@ def test_router_prompt_no_longer_calls_insults_or_bait_disengage():
     assert "only insults, spam, or bait" not in ROUTER_SYSTEM_PROMPT
 
 
-def test_router_prompt_defines_ready_conservatively():
-    assert "ready is true only when" in ROUTER_SYSTEM_PROMPT
-    assert "what is underneath the post" in ROUTER_SYSTEM_PROMPT
-    assert "not escalating or defending" in ROUTER_SYSTEM_PROMPT
-    assert "When unsure, ready is false" in ROUTER_SYSTEM_PROMPT
+def test_router_prompt_has_no_ready_flag():
+    assert not re.search(r"\bready\b", ROUTER_SYSTEM_PROMPT.lower())
 
 
-def test_router_prompt_sends_vague_replies_to_mixed():
-    assert "vague" in ROUTER_SYSTEM_PROMPT
-    assert "disengage takes precedence" in ROUTER_SYSTEM_PROMPT
+def test_router_prompt_sends_everything_else_to_default():
+    assert "- default: everything else" in ROUTER_SYSTEM_PROMPT
+    assert "When unsure, use default" in ROUTER_SYSTEM_PROMPT
 
 
 def _msgs(*pairs):
@@ -466,10 +424,10 @@ def test_build_includes_the_selection_note(verdict):
 
 
 def test_build_uses_the_localized_examples(verdict, monkeypatch):
-    monkeypatch.setitem(EXAMPLES_BY_LANGUAGE["fr"], "return", "Exemple : un echange")
+    monkeypatch.setitem(EXAMPLES_BY_LANGUAGE["fr"], "reflect", "Exemple : un echange")
     prompt = build_system_prompt("my draft post", verdict, language="fr")
     assert "Exemple : un echange" in prompt
-    assert EXAMPLES["return"] not in prompt
+    assert EXAMPLES["reflect"] not in prompt
 
 
 @pytest.mark.parametrize("branch", BRANCHES)
@@ -490,44 +448,4 @@ def test_turn_guidance_names_sections_the_system_prompt_contains(verdict, branch
 
 
 def test_turn_guidance_is_short():
-    assert len(build_turn_guidance("belief", "listen").split()) < 30
-
-
-def test_close_note_asks_for_a_warm_close_with_no_question():
-    assert "closes the guided part of the conversation" in CLOSE_NOTE
-    assert "welcome to keep talking" in CLOSE_NOTE
-    assert "do not ask a further question" in CLOSE_NOTE
-
-
-def test_close_note_hands_the_decision_back_without_listing_options():
-    assert "the decision about it is theirs" in CLOSE_NOTE
-    assert "do not list them, do not name any button" in CLOSE_NOTE
-    assert "edit it, post it as it is" not in CLOSE_NOTE
-
-
-# --- repeated rules are stated once ----------------------------------------
-
-
-@pytest.mark.parametrize("branch", ["grievance", "joke"])
-def test_addenda_that_name_the_soft_observation_do_not_restate_its_rule(branch):
-    text = BRANCH_ADDENDA[branch]
-    assert "I wonder if" in text
-    assert "with no check" not in text
-    assert "never followed by a check" not in text
-
-
-@pytest.mark.parametrize("branch", ["belief", "mixed"])
-def test_generic_addenda_leave_the_soft_observation_to_the_base_prompt(branch):
-    assert "I wonder if" not in BRANCH_ADDENDA[branch]
-
-
-def test_listen_adds_something_new_and_leaves_the_post_alone_for_now():
-    assert "add something new" in LISTEN_NOTE
-    assert "Do not bring the original post back up yourself yet" in LISTEN_NOTE
-    assert "Do not restate a reflection you already gave" not in LISTEN_NOTE
-    assert "Do not ask check-ins" not in LISTEN_NOTE
-
-
-def test_the_base_prompt_names_the_closing_as_a_place_the_post_comes_back():
-    assert "is the one place you bring the post's words back" not in SUPPORT_CHAT_SYSTEM_PROMPT
-    assert "The return question and the closing reply are the two places" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert len(build_turn_guidance("default", "reflect").split()) < 30

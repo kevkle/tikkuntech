@@ -9,7 +9,8 @@ CONTEXT_TAG = "flagged_post_context"
 # Python: base.md, branches.md, stages.md, reply_language.md and selection.md, which are
 # shared by every language. The branches, stages and examples files split into one "## name"
 # section per branch or phase. Only the opening and the examples are written per language
-# under chat/locales/<language>/, and the English file stands in for any that are missing.
+# under chat/locales/<language>/, and the English file stands in for any that are missing
+# (today only English examples exist).
 LANGUAGES: tuple[Language, ...] = get_args(Language)
 LANGUAGE_NAMES: dict[Language, str] = {
     "en": "English",
@@ -48,19 +49,17 @@ SUPPORT_CHAT_SYSTEM_PROMPT = load_prompt("chat/base.md")
 SELECTION_NOTE = load_prompt("chat/selection.md")
 REPLY_LANGUAGE_NOTE = load_prompt("chat/reply_language.md")
 
-# One addendum per branch. "mixed" is also the default when the router cannot decide.
+# One addendum per branch. "default" is also used when the router cannot decide.
 _BRANCH_SECTIONS = load_sections("chat/branches.md")
 BRANCH_ADDENDA: dict[Branch, str] = {branch: _BRANCH_SECTIONS[branch] for branch in get_args(Branch)}
 
 # Stage guidance, chosen each turn by the conversation phase the server works out.
-Phase = Literal["listen", "return", "close", "continue"]
+Phase = Literal["reflect", "close"]
 
 _STAGE_SECTIONS = load_sections("chat/stages.md")
 STAGE_NOTES: dict[Phase, str] = {phase: _STAGE_SECTIONS[phase] for phase in get_args(Phase)}
-LISTEN_NOTE = STAGE_NOTES["listen"]
-RETURN_TO_POST_NOTE = STAGE_NOTES["return"]
+REFLECT_NOTE = STAGE_NOTES["reflect"]
 CLOSE_NOTE = STAGE_NOTES["close"]
-CONTINUE_NOTE = STAGE_NOTES["continue"]
 
 
 # Worked examples for each phase, per language.

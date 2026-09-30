@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 Category = Literal["none", "self_harm", "violence", "harassment", "hate", "other"]
 Severity = Literal["low", "medium", "high"]
-Branch = Literal["belief", "grievance", "joke", "mixed", "disengage"]
+Branch = Literal["default", "disengage"]
 Language = Literal["en", "ar", "fr", "de"]
 
 
@@ -38,12 +38,6 @@ class RouteVerdict(BaseModel):
     branch: Branch = Field(
         description="Best-fitting branch for the user's latest reply."
     )
-    ready: bool = Field(
-        description=(
-            "True only when the person has said what is underneath the post, sounds "
-            "steadier, and is not escalating or defending. False when unsure."
-        )
-    )
     reason: str = Field(description="One short sentence explaining the choice.")
 
 
@@ -57,10 +51,6 @@ class ChatRequest(BaseModel):
     verdict: Verdict
     # Empty history means "send the fixed opening message".
     history: list[ChatMessage] = Field(default_factory=list, max_length=40)
-    # The stage of the last bot message, echoed from the X-Chat-Phase header: after
-    # "return" the next reply is the close, after "close" the chat continues. The server
-    # itself keeps no conversation state.
-    last_phase: Literal["return", "close"] | None = None
     # What to call the person; the chat uses it like a human would. Optional.
     user_name: str | None = Field(default=None, max_length=50)
     # The language the person picked in the UI; the chat replies in it.

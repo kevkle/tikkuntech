@@ -24,8 +24,8 @@
     "close": "Close and keep editing my post",
     "typing": "Assistant is typing",
     "yourCall": "Whenever you're ready. It's your call.",
-    "editPost": "Edit my post",
-    "postAsIs": "Post it as is",
+    "editPost": "Edit it",
+    "postAsIs": "Post it",
     "inputPlaceholder": "Type your reply...",
     "send": "Send",
     "deletePost": "Delete Post",
@@ -43,8 +43,8 @@
   },
   "resources": {
     "kinds": {
-      "learn": "Learn more",
-      "talk": "Talk with people"
+      "learn": "Save it for later",
+      "talk": "Delete it"
     },
     "learn": {
       "placeholder": {

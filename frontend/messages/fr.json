@@ -24,8 +24,8 @@
     "close": "Fermer et continuer à modifier ma publication",
     "typing": "L'assistant écrit",
     "yourCall": "Quand vous voulez. C'est vous qui décidez.",
-    "editPost": "Modifier ma publication",
-    "postAsIs": "Publier telle quelle",
+    "editPost": "Modifier",
+    "postAsIs": "Publier",
     "inputPlaceholder": "Écrivez votre réponse...",
     "send": "Envoyer",
     "deletePost": "Supprimer la publication",
@@ -43,8 +43,8 @@
   },
   "resources": {
     "kinds": {
-      "learn": "En savoir plus",
-      "talk": "Échanger avec d'autres personnes"
+      "learn": "Enregistrer pour plus tard",
+      "talk": "Supprimer"
     },
     "learn": {
       "placeholder": {

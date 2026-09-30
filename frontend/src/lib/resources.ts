@@ -19,10 +19,7 @@ export type Resource = {
 // Extras offered next to "Edit my post" and "Post it as is", in order, per routed branch.
 // "disengage" never gets a menu.
 export const MENU_EXTRAS: Record<Branch, ResourceKind[]> = {
-  belief: ["learn", "talk"],
-  grievance: ["talk", "learn"],
-  joke: ["learn"],
-  mixed: ["learn"],
+  default: ["learn", "talk"],
   disengage: [],
 };
 

@@ -168,10 +168,8 @@ def test_module_constants_come_from_the_files():
     assert support_chat.SUPPORT_CHAT_SYSTEM_PROMPT == load_prompt("chat/base.md")
     assert support_chat.SELECTION_NOTE == load_prompt("chat/selection.md")
     stages = load_sections("chat/stages.md")
-    assert support_chat.LISTEN_NOTE == stages["listen"]
-    assert support_chat.RETURN_TO_POST_NOTE == stages["return"]
+    assert support_chat.REFLECT_NOTE == stages["reflect"]
     assert support_chat.CLOSE_NOTE == stages["close"]
-    assert support_chat.CONTINUE_NOTE == stages["continue"]
     assert router.ROUTER_SYSTEM_PROMPT == load_prompt("router.md")
     assert classifier.CLASSIFIER_SYSTEM_PROMPT == load_prompt("classifier.md")
 
@@ -187,21 +185,22 @@ def test_reply_language_file_has_the_language_placeholder():
 @pytest.mark.parametrize("language", get_args(Language))
 def test_no_locale_folder_carries_instructions(language):
     names = {p.name for p in (PROMPTS_DIR / "chat" / "locales" / language).glob("*.md")}
-    assert names == {"examples.md", "opening.md", "opening_named.md"}
+    expected = {"opening.md", "opening_named.md"}
+    # Only English has examples; the other languages fall back to them.
+    assert names == (expected | {"examples.md"} if language == "en" else expected)
 
 
-STOCK_PHRASES = [
-    "the thing is",
-    "phrasing your post like this",
-    "i understand where you're coming from",
-    "myth",
-    "not a proven fact",
-]
-EXPECTED_EXAMPLE_COUNTS = {"listen": 5, "return": 5, "close": 3, "continue": 5}
+import re
+
+EXPECTED_EXAMPLE_COUNTS = {"reflect": 4, "close": 4}
 
 
 def _examples_text(language):
     return load_sections(f"chat/locales/{language}/examples.md")
+
+
+def _replies(section):
+    return re.findall(r"<reply>(.*?)</reply>", _examples_text("en")[section], flags=re.S)
 
 
 def test_english_example_counts_per_section():
@@ -209,48 +208,40 @@ def test_english_example_counts_per_section():
     assert {n: t.count("<example>") for n, t in sections.items()} == EXPECTED_EXAMPLE_COUNTS
 
 
-@pytest.mark.parametrize("phrase", STOCK_PHRASES)
-def test_english_examples_avoid_stock_phrases_and_fact_corrections(phrase):
-    text = "\n".join(_examples_text("en").values()).lower()
-    assert phrase not in text
-
-
-def test_kill_all_the_jews_is_the_post_of_only_one_example():
-    text = "\n".join(_examples_text("en").values())
-    assert text.count("<post>kill all the jews</post>") == 1
-
-
 @pytest.mark.parametrize("language", ["ar", "de", "fr"])
-def test_locale_examples_have_the_same_count_per_section_as_english(language):
-    sections = _examples_text(language)
-    assert {n: t.count("<example>") for n, t in sections.items()} == EXPECTED_EXAMPLE_COUNTS
+def test_other_languages_use_the_english_examples(language):
+    assert not (PROMPTS_DIR / "chat" / "locales" / language / "examples.md").exists()
+    assert EXAMPLES_BY_LANGUAGE[language] == EXAMPLES
 
 
-def test_continue_examples_each_start_from_a_closing_message():
-    continue_section = _examples_text("en")["continue"]
-    assert continue_section.count("<earlier>") == continue_section.count("<example>")
+@pytest.mark.parametrize("section", ["reflect", "close"])
+def test_example_replies_have_no_question(section):
+    replies = _replies(section)
+    assert len(replies) == EXPECTED_EXAMPLE_COUNTS[section]
+    assert not [r for r in replies if "?" in r]
 
 
-def _examples_section(name):
-    return _examples_text("en")[name]
+@pytest.mark.parametrize("section", ["reflect", "close"])
+def test_example_replies_are_two_sentences_at_most(section):
+    for reply in _replies(section):
+        assert len(re.findall(r"[.!?](?:\s|$)", reply.strip())) <= 2
 
 
-def test_closing_messages_do_not_share_the_same_decision_sentence():
-    import re
-
-    closing = re.findall(r"<reply>(.*?)</reply>", _examples_section("close"))
-    earlier = re.findall(r"<earlier>(.*?)</earlier>", _examples_section("continue"))
-    messages = closing + earlier
-    assert len(messages) == 8
-    assert not [m for m in messages if "what happens with" in m.lower()]
+def test_close_examples_do_not_list_the_options():
+    text = _examples_text("en")["close"]
+    for option in ("1. Edit it", "2. Save it for later", "3. Delete it", "4. Post it"):
+        assert option not in text
+    assert "What would you like to do with your post" not in text
 
 
-def test_continue_earlier_messages_do_not_all_open_with_thanks():
-    import re
+def test_close_examples_start_from_the_reflect_reply():
+    section = _examples_text("en")["close"]
+    assert section.count("<earlier>") == section.count("<example>")
+    reflect_replies = _replies("reflect")
+    earlier = re.findall(r"<earlier>Assistant: (.*?)</earlier>", section, flags=re.S)
+    assert earlier == reflect_replies
 
-    earlier = re.findall(r"<earlier>(.*?)</earlier>", _examples_section("continue"))
-    assert sum(m.removeprefix("Assistant: ").startswith("Thank") for m in earlier) <= 2
 
-
-def test_continue_examples_use_no_detail_the_example_never_gave():
-    assert "three people" not in _examples_section("continue")
+def test_reflect_examples_start_from_the_opening_question():
+    section = _examples_text("en")["reflect"]
+    assert section.count("<earlier>Assistant: What made you want to post this right now?</earlier>") == 4

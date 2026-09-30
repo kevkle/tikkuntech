@@ -11,7 +11,7 @@ import { DUMMY_POSTS, MainFeed } from "@/components/MainFeed";
 import { InterventionModal } from "@/components/InterventionModal";
 import { DEFAULT_LANGUAGE, dirOf, isLanguage } from "@/i18n/config";
 import { MESSAGES } from "@/i18n/messages";
-import { classifyPost, streamChat, type ChatPhase } from "@/lib/api";
+import { classifyPost, streamChat } from "@/lib/api";
 import type { Branch, Language, Message, Post, Verdict } from "@/lib/types";
 
 /* ==========================================================================
@@ -41,8 +41,6 @@ export default function Page() {
   const [chatError, setChatError] = useState<string | null>(null);
   // Set once the server sends the closing message; the modal then shows the option buttons.
   const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
-  // The stage of the last bot message, sent back so the server knows what comes next.
-  const [lastPhase, setLastPhase] = useState<ChatPhase | null>(null);
   // The chat panel speaks the post's language; the picker only decides when it is unknown.
   const modalLanguage: Language = pendingVerdict?.language ?? language;
 
@@ -81,11 +79,10 @@ export default function Page() {
     setChatError(null);
 
     try {
-      const { phase, menu } = await streamChat(
+      const { menu } = await streamChat(
         post,
         verdict,
         history,
-        lastPhase,
         USER_NAME,
         language,
         (delta) =>
@@ -94,7 +91,6 @@ export default function Page() {
           ),
         controller.signal,
       );
-      if (phase) setLastPhase(phase);
       if (menu) setMenuBranch(menu);
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -152,7 +148,6 @@ export default function Page() {
     setMessages([]);
     setChatError(null);
     setMenuBranch(null);
-    setLastPhase(null);
     setIsModalOpen(false);
     setPendingPost("");
     setPendingVerdict(null);
