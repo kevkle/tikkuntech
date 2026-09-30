@@ -6,10 +6,10 @@ from app.schemas import Branch, Language, Verdict
 CONTEXT_TAG = "flagged_post_context"
 
 # The prompt text lives in plain files under chat/ so it can be edited without touching
-# Python: base.md, branches.md, stages.md, examples.md, closing.md and opening.md. The
+# Python: base.md, branches.md and stages.md, which are shared by every language. The
 # branches, stages and examples files split into one "## name" section per branch or phase.
-# The opening, examples and closing are also written per language under
-# chat/locales/<language>/, and the English file stands in for any that are missing.
+# The opening, examples and closing are written per language under chat/locales/<language>/,
+# and the English file stands in for any that are missing.
 LANGUAGES: tuple[Language, ...] = get_args(Language)
 LANGUAGE_NAMES: dict[Language, str] = {
     "en": "English",
