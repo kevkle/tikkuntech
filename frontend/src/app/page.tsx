@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { DUMMY_POSTS, MainFeed } from "@/components/MainFeed";
 import { InterventionModal } from "@/components/InterventionModal";
-import { classifyPost, streamChat } from "@/lib/api";
+import { classifyPost, streamChat, type ChatPhase } from "@/lib/api";
 import type { Branch, Message, Post, Verdict } from "@/lib/types";
 
 /* ==========================================================================
@@ -24,8 +24,10 @@ export default function Page() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
-  // Set once the server sends the menu message; the modal then shows the option buttons.
+  // Set once the server sends the closing message; the modal then shows the option buttons.
   const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
+  // The stage of the last bot message, sent back so the server knows what comes next.
+  const [lastPhase, setLastPhase] = useState<ChatPhase | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const nextId = useRef(0);
@@ -62,17 +64,18 @@ export default function Page() {
     setChatError(null);
 
     try {
-      const { menu } = await streamChat(
+      const { phase, menu } = await streamChat(
         post,
         verdict,
         history,
-        menuBranch !== null,
+        lastPhase,
         (delta) =>
           setMessages((prev) =>
             prev.map((m) => (m.id === aiId ? { ...m, text: m.text + delta } : m)),
           ),
         controller.signal,
       );
+      if (phase) setLastPhase(phase);
       if (menu) setMenuBranch(menu);
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -125,6 +128,7 @@ export default function Page() {
     setMessages([]);
     setChatError(null);
     setMenuBranch(null);
+    setLastPhase(null);
     setIsModalOpen(false);
     setPendingPost("");
     setPendingVerdict(null);

@@ -2,8 +2,12 @@ import type { Branch, Message, Verdict } from "./types";
 
 const BRANCHES: readonly string[] = ["belief", "grievance", "joke", "mixed", "disengage"];
 
+export type ChatPhase = "return" | "close";
+
 export type ChatResult = {
-  // Set when the reply was the menu message: the branch decides which extras to offer.
+  // The stage of this reply, to send back with the next request.
+  phase: ChatPhase | null;
+  // Set when the reply was the closing message: the branch decides which extras to offer.
   menu: Branch | null;
 };
 
@@ -20,14 +24,14 @@ export async function classifyPost(text: string): Promise<Verdict> {
 /**
  * Streams the assistant's next reply as plain text chunks.
  * An empty `history` asks the server for the opening message.
- * Resolves with `menu` set when the server marked this reply as the menu message.
+ * Resolves with `menu` set when the server marked this reply as the closing message.
  * Rejects on a non-200 response or a broken stream.
  */
 export async function streamChat(
   post: string,
   verdict: Verdict,
   history: Message[],
-  menuShown: boolean,
+  lastPhase: ChatPhase | null,
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
 ): Promise<ChatResult> {
@@ -38,15 +42,17 @@ export async function streamChat(
       post,
       verdict,
       history: history.map(({ role, text }) => ({ role, text })),
-      // Tells the server the option buttons are already showing.
-      menu_shown: menuShown,
+      // The stage of the last bot message, so the server knows what comes next.
+      last_phase: lastPhase,
     }),
     signal,
   });
   if (!res.ok || !res.body) throw new Error(`chat failed: ${res.status}`);
 
-  const header = res.headers.get("x-chat-menu") ?? "";
-  const menu = BRANCHES.includes(header) ? (header as Branch) : null;
+  const menuHeader = res.headers.get("x-chat-menu") ?? "";
+  const menu = BRANCHES.includes(menuHeader) ? (menuHeader as Branch) : null;
+  const phaseHeader = res.headers.get("x-chat-phase");
+  const phase = phaseHeader === "return" || phaseHeader === "close" ? phaseHeader : null;
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -57,5 +63,5 @@ export async function streamChat(
   }
   const tail = decoder.decode();
   if (tail) onDelta(tail);
-  return { menu };
+  return { phase, menu };
 }

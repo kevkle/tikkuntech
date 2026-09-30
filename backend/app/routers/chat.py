@@ -1,6 +1,8 @@
 import logging
 import time
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -68,12 +70,23 @@ def _static(text: str) -> StreamingResponse:
     )
 
 
-def _phase(branch: Branch, ready: bool, bot_turn: int, menu_shown: bool) -> Phase | None:
-    """Where the conversation is: listening, returning to the post, or past that."""
+ChatPhase = Phase | Literal["close"]
+
+
+def _phase(
+    branch: Branch,
+    ready: bool,
+    bot_turn: int,
+    last_phase: Literal["return", "close"] | None,
+) -> ChatPhase | None:
+    """Where the conversation is: listening, returning to the post, closing with the
+    options, or past the close."""
     if branch == "disengage":
         return None
-    if menu_shown:
+    if last_phase == "close":
         return "continue"
+    if last_phase == "return" or bot_turn >= MAX_BOT_TURNS:
+        return "close"
     if bot_turn >= MENU_MIN_TURN and (ready or bot_turn >= MENU_FALLBACK_TURN):
         return "return"
     return "listen"
@@ -129,17 +142,20 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
     branch, ready, reason = await _route(req)
     bot_turn = sum(m.role == "ai" for m in req.history) + 1
-    phase = _phase(branch, ready, bot_turn, req.menu_shown)
+    phase = _phase(branch, ready, bot_turn, req.last_phase)
     logger.info(
-        "chat: phase=%s ready=%s turn=%d menu_shown=%s",
+        "chat: phase=%s ready=%s turn=%d last_phase=%s",
         phase,
         ready,
         bot_turn,
-        req.menu_shown,
+        req.last_phase,
     )
-    # From the return to the post on, tell the client to show the option buttons.
+    # The client echoes the stage back next turn, and shows the option buttons from the
+    # close on, so they arrive with the message that introduces them.
     headers = dict(STREAM_HEADERS)
-    if phase in ("return", "continue"):
+    if phase in ("return", "close"):
+        headers["X-Chat-Phase"] = phase
+    if phase in ("close", "continue"):
         headers["X-Chat-Menu"] = branch
 
     model = settings.chat_model
@@ -148,8 +164,9 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         req.post,
         req.verdict,
         branch,
-        closing=bot_turn >= MAX_BOT_TURNS,
-        phase=phase,
+        # The disengage branch has no option buttons; it only gets the warm close at the cap.
+        closing=phase == "close" or (branch == "disengage" and bot_turn >= MAX_BOT_TURNS),
+        phase=None if phase == "close" else phase,
     )
     messages = [SystemMessage(content=system)]
     for m in req.history:

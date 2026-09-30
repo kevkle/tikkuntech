@@ -232,22 +232,50 @@ def test_before_the_eighth_bot_message_there_is_no_closing_instruction(
     assert CLOSING_INSTRUCTION not in fake.calls[0][0].content
 
 
-@pytest.mark.parametrize("bot_turns", [7, 8, 9])
-def test_from_the_eighth_bot_message_on_the_reply_is_a_warm_close(
+@pytest.mark.parametrize("bot_turns", [7, 8])
+def test_the_eighth_bot_message_is_the_close_if_it_has_not_happened_yet(
     client, set_chat, body, bot_turns
 ):
     fake = set_chat(FakeChat(["ok"]))
     body["history"] = convo(bot_turns)
-    client.post("/chat", json=body)
+    r = client.post("/chat", json=body)
 
     assert CLOSING_INSTRUCTION in fake.calls[0][0].content
+    assert r.headers["x-chat-phase"] == "close"
+    assert "x-chat-menu" in r.headers
+
+
+def test_after_the_close_the_chat_continues_without_another_close(client, set_chat, body):
+    fake = set_chat(FakeChat(["ok"]))
+    body["history"] = convo(9)
+    body["last_phase"] = "close"
+    client.post("/chat", json=body)
+
+    system = fake.calls[0][0].content
+    assert CLOSING_INSTRUCTION not in system
+    assert CONTINUE_NOTE in system
+
+
+@pytest.mark.parametrize("bot_turns", [7, 8, 9])
+def test_disengage_gets_the_warm_close_at_the_cap_without_the_menu(
+    client, set_chat, router, body, bot_turns
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("disengage", ready=False)
+    body["history"] = convo(bot_turns)
+    r = client.post("/chat", json=body)
+
+    assert CLOSING_INSTRUCTION in fake.calls[0][0].content
+    assert "x-chat-menu" not in r.headers
+    assert "x-chat-phase" not in r.headers
 
 
 # --- stages and the option menu ---------------------------------------------
 #
-# Bot message N is written after `convo(N - 1)`. The return to the post (and the
-# X-Chat-Menu header) happens when the router says the person is ready, from bot
-# message 3 on, and at the latest on bot message 6.
+# Bot message N is written after `convo(N - 1)`. The return to the post (and then the
+# close with the X-Chat-Menu header) follows it. The return happens when the router says
+# the person is ready, from bot message 3 on, and at the latest on bot message 6; the
+# close is the next bot message, or bot message 8 at the latest.
 
 ALL_NOTES = (LISTEN_NOTE, RETURN_TO_POST_NOTE, CONTINUE_NOTE)
 
@@ -273,7 +301,7 @@ def test_not_ready_keeps_listening_without_the_menu(
 
 
 @pytest.mark.parametrize("bot_turns", [2, 3, 4])
-def test_ready_returns_to_the_post_and_shows_the_menu(
+def test_ready_returns_to_the_post_without_the_menu(
     client, set_chat, router, body, bot_turns
 ):
     fake = set_chat(FakeChat(["ok"]))
@@ -284,7 +312,8 @@ def test_ready_returns_to_the_post_and_shows_the_menu(
     assert len(fake.calls) == 1  # a normal model reply, not a fixed message
     only_note(fake.calls[0][0].content, RETURN_TO_POST_NOTE)
     assert r.text == "ok"
-    assert r.headers["x-chat-menu"] == "grievance"
+    assert r.headers["x-chat-phase"] == "return"
+    assert "x-chat-menu" not in r.headers
 
 
 def test_ready_on_the_second_bot_message_is_too_early(client, set_chat, router, body):
@@ -297,7 +326,7 @@ def test_ready_on_the_second_bot_message_is_too_early(client, set_chat, router, 
     assert "x-chat-menu" not in r.headers
 
 
-def test_the_fallback_opens_the_menu_on_bot_message_six_even_if_not_ready(
+def test_the_fallback_returns_to_the_post_on_bot_message_six_even_if_not_ready(
     client, set_chat, router, body
 ):
     fake = set_chat(FakeChat(["ok"]))
@@ -306,7 +335,7 @@ def test_the_fallback_opens_the_menu_on_bot_message_six_even_if_not_ready(
     r = client.post("/chat", json=body)
 
     only_note(fake.calls[0][0].content, RETURN_TO_POST_NOTE)
-    assert r.headers["x-chat-menu"] == "joke"
+    assert r.headers["x-chat-phase"] == "return"
 
 
 def test_the_message_before_the_fallback_still_waits(client, set_chat, router, body):
@@ -320,17 +349,35 @@ def test_the_message_before_the_fallback_still_waits(client, set_chat, router, b
 
 
 @pytest.mark.parametrize("ready", [False, True])
-def test_once_the_menu_is_shown_replies_continue_and_keep_the_header(
+def test_the_reply_after_the_return_is_the_close_with_the_menu(
     client, set_chat, router, body, ready
 ):
     fake = set_chat(FakeChat(["ok"]))
     router.result = route("belief", ready=ready)
     body["history"] = convo(3)  # bot message 4
-    body["menu_shown"] = True
+    body["last_phase"] = "return"
+    r = client.post("/chat", json=body)
+
+    system = fake.calls[0][0].content
+    assert CLOSING_INSTRUCTION in system
+    assert not any(note in system for note in ALL_NOTES)
+    assert r.headers["x-chat-phase"] == "close"
+    assert r.headers["x-chat-menu"] == "belief"
+
+
+@pytest.mark.parametrize("ready", [False, True])
+def test_once_the_menu_is_shown_replies_continue_and_keep_the_header(
+    client, set_chat, router, body, ready
+):
+    fake = set_chat(FakeChat(["ok"]))
+    router.result = route("belief", ready=ready)
+    body["history"] = convo(4)  # bot message 5
+    body["last_phase"] = "close"
     r = client.post("/chat", json=body)
 
     only_note(fake.calls[0][0].content, CONTINUE_NOTE)
     assert r.headers["x-chat-menu"] == "belief"
+    assert "x-chat-phase" not in r.headers
 
 
 @pytest.mark.parametrize("branch", ["belief", "grievance", "joke", "mixed"])
@@ -338,6 +385,7 @@ def test_menu_header_names_the_routed_branch(client, set_chat, router, body, bra
     set_chat(FakeChat(["ok"]))
     router.result = route(branch, ready=True)
     body["history"] = convo(3)
+    body["last_phase"] = "return"
     r = client.post("/chat", json=body)
 
     assert r.headers["x-chat-menu"] == branch
@@ -347,6 +395,7 @@ def test_menu_reply_keeps_the_no_buffering_headers(client, set_chat, router, bod
     set_chat(FakeChat(["ok"]))
     router.result = route("mixed", ready=True)
     body["history"] = convo(3)
+    body["last_phase"] = "return"
     r = client.post("/chat", json=body)
 
     assert r.headers["content-type"].startswith("text/plain")
@@ -358,21 +407,19 @@ def test_disengage_never_gets_a_stage_note_or_the_menu(client, set_chat, router,
     fake = set_chat(FakeChat(["ok"]))
     router.result = route("disengage", ready=True)
     body["history"] = convo(5)  # past the fallback
-    body["menu_shown"] = True
+    body["last_phase"] = "return"
     r = client.post("/chat", json=body)
 
     system = fake.calls[0][0].content
     assert BRANCH_ADDENDA["disengage"] in system
     assert not any(note in system for note in ALL_NOTES)
     assert "x-chat-menu" not in r.headers
+    assert "x-chat-phase" not in r.headers
 
 
-def test_the_closing_turn_has_no_stage_note_but_keeps_the_menu(
-    client, set_chat, body
-):
+def test_the_closing_turn_has_no_stage_note_but_has_the_menu(client, set_chat, body):
     fake = set_chat(FakeChat(["ok"]))
     body["history"] = convo(7)  # bot message 8
-    body["menu_shown"] = True
     r = client.post("/chat", json=body)
 
     system = fake.calls[0][0].content
@@ -399,7 +446,7 @@ def test_the_phase_is_logged_without_any_text(client, set_chat, router, body, ca
     client.post("/chat", json=body)
 
     lines = [r.getMessage() for r in caplog.records if r.name == "app.chat"]
-    assert "chat: phase=return ready=True turn=4 menu_shown=False" in lines
+    assert "chat: phase=return ready=True turn=4 last_phase=None" in lines
     assert not any("user 2" in line or "a draft" in line for line in lines)
 
 

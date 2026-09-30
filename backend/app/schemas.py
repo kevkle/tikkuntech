@@ -49,9 +49,10 @@ class ChatRequest(BaseModel):
     verdict: Verdict
     # Empty history means "send the fixed opening message".
     history: list[ChatMessage] = Field(default_factory=list, max_length=40)
-    # True once the client is showing the option buttons, so the server does not return
-    # to the post a second time. The server itself keeps no conversation state.
-    menu_shown: bool = False
+    # The stage of the last bot message, echoed from the X-Chat-Phase header: after
+    # "return" the next reply is the close, after "close" the chat continues. The server
+    # itself keeps no conversation state.
+    last_phase: Literal["return", "close"] | None = None
 
     @model_validator(mode="after")
     def history_ends_with_user(self) -> "ChatRequest":

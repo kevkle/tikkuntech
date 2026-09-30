@@ -184,7 +184,13 @@ def test_closing_instruction_is_only_added_when_closing(verdict):
 def test_closing_instruction_asks_for_a_warm_close_with_no_question():
     assert "final message" in CLOSING_INSTRUCTION
     assert "welcome to keep talking" in CLOSING_INSTRUCTION
-    assert "Do not ask a further question" in CLOSING_INSTRUCTION
+    assert "do not ask a further question" in CLOSING_INSTRUCTION
+
+
+def test_closing_instruction_connects_the_post_to_the_options_in_words():
+    assert "connect to the original post" in CLOSING_INSTRUCTION
+    assert "edit it, post it as it is" in CLOSING_INSTRUCTION
+    assert "do not name any button" in CLOSING_INSTRUCTION.lower()
 
 
 # --- stages ----------------------------------------------------------------
@@ -219,9 +225,12 @@ def test_return_goes_back_to_the_original_post_in_emotional_terms():
     assert "blame, politics, or what should happen" in RETURN_TO_POST_NOTE
 
 
-@pytest.mark.parametrize("note", [RETURN_TO_POST_NOTE, CONTINUE_NOTE])
-def test_notes_leave_the_options_to_the_interface(note):
-    assert "do not list them or mention buttons" in note
+def test_return_note_does_not_mention_options_that_are_not_shown_yet():
+    assert "No options are shown yet" in RETURN_TO_POST_NOTE
+
+
+def test_continue_note_leaves_the_options_to_the_interface():
+    assert "do not list them or mention buttons" in CONTINUE_NOTE
 
 
 @pytest.mark.parametrize("note", ALL_NOTES)

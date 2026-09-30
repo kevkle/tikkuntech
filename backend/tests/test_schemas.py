@@ -91,12 +91,18 @@ def test_chat_request_allows_empty_history():
     assert ChatRequest(**chat_dict()).history == []
 
 
-def test_chat_request_menu_shown_defaults_to_false():
-    assert ChatRequest(**chat_dict()).menu_shown is False
+def test_chat_request_last_phase_defaults_to_none():
+    assert ChatRequest(**chat_dict()).last_phase is None
 
 
-def test_chat_request_accepts_menu_shown():
-    assert ChatRequest(**chat_dict(menu_shown=True)).menu_shown is True
+@pytest.mark.parametrize("phase", ["return", "close"])
+def test_chat_request_accepts_a_last_phase(phase):
+    assert ChatRequest(**chat_dict(last_phase=phase)).last_phase == phase
+
+
+def test_chat_request_rejects_an_unknown_last_phase():
+    with pytest.raises(ValidationError):
+        ChatRequest(**chat_dict(last_phase="listen"))
 
 
 def test_chat_history_ending_with_user_is_valid():
