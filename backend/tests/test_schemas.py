@@ -34,6 +34,20 @@ def test_verdict_rejects_unknown_values(field, value):
         Verdict(**verdict_dict(**{field: value}))
 
 
+@pytest.mark.parametrize("language", ["en", "ar", "fr", "de", None])
+def test_verdict_accepts_a_post_language_or_none(language):
+    assert Verdict(**verdict_dict(language=language)).language == language
+
+
+def test_verdict_post_language_defaults_to_none():
+    assert Verdict(**verdict_dict()).language is None
+
+
+def test_verdict_rejects_an_unsupported_post_language():
+    with pytest.raises(ValidationError):
+        Verdict(**verdict_dict(language="he"))
+
+
 def test_verdict_requires_all_fields():
     with pytest.raises(ValidationError):
         Verdict(harmful=True)

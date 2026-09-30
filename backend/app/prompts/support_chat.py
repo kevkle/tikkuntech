@@ -89,8 +89,10 @@ CLOSING_INSTRUCTION = CLOSINGS["en"]
 
 def reply_language_note(language: Language) -> str:
     return (
-        f"Respond in {LANGUAGE_NAMES[language]}, idiomatic as a native speaker would write it "
-        "and in the language's own script. The rules above apply unchanged."
+        "Reply in the language the person wrote their latest message in, idiomatic as a "
+        "native speaker would write it and in that language's own script. If it is unclear, "
+        f"or they haven't written yet, reply in {LANGUAGE_NAMES[language]}. "
+        "The rules above apply unchanged."
     )
 
 

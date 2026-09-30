@@ -339,23 +339,27 @@ def test_disengage_has_no_stage_note(verdict):
 # --- reply language --------------------------------------------------------
 
 LANGUAGE_NAMES = [("en", "English"), ("ar", "Arabic"), ("fr", "French"), ("de", "German")]
+MESSAGE_LANGUAGE_RULE = "Reply in the language the person wrote their latest message in"
 
 
 @pytest.mark.parametrize("language,name", LANGUAGE_NAMES)
-def test_build_names_the_reply_language_before_the_context_block(verdict, language, name):
+def test_build_follows_the_message_language_and_names_the_picked_one_as_fallback(
+    verdict, language, name
+):
     prompt = build_system_prompt("my draft post", verdict, language=language)
-    assert f"Respond in {name}" in prompt
-    assert prompt.index(f"Respond in {name}") < prompt.rindex(OPEN_TAG)
+    assert MESSAGE_LANGUAGE_RULE in prompt
+    assert f"reply in {name}" in prompt
+    assert prompt.index(f"reply in {name}") < prompt.rindex(OPEN_TAG)
 
 
-def test_build_replies_in_english_by_default(verdict):
-    assert "Respond in English" in build_system_prompt("my draft post", verdict)
+def test_build_falls_back_to_english_by_default(verdict):
+    assert "reply in English" in build_system_prompt("my draft post", verdict)
 
 
-def test_the_reply_language_line_is_the_only_one_named(verdict):
+def test_the_fallback_language_line_is_the_only_one_named(verdict):
     prompt = build_system_prompt("my draft post", verdict, language="fr")
-    assert "Respond in French" in prompt
-    assert "Respond in English" not in prompt
+    assert "reply in French" in prompt
+    assert "reply in English" not in prompt
 
 
 def test_build_uses_the_localized_examples(verdict, monkeypatch):

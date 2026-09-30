@@ -103,6 +103,28 @@ def test_opening_is_in_the_requested_language(client, monkeypatch, body):
     assert client.post("/chat", json=body).text == "Qu'est-ce qui t'a fait dire ca ?"
 
 
+def test_opening_follows_the_language_of_the_post_over_the_picker(client, monkeypatch, body):
+    monkeypatch.setitem(OPENINGS, "de", "Was hat dich dazu gebracht, das zu posten?")
+    body["history"] = []
+    body["language"] = "en"
+    body["verdict"]["language"] = "de"
+    assert client.post("/chat", json=body).text == "Was hat dich dazu gebracht, das zu posten?"
+
+
+@pytest.mark.parametrize("post_language", [None, "missing"])
+def test_opening_uses_the_picker_when_the_post_language_is_unknown(
+    client, monkeypatch, body, post_language
+):
+    monkeypatch.setitem(OPENINGS, "fr", "Qu'est-ce qui t'a fait dire ca ?")
+    body["history"] = []
+    body["language"] = "fr"
+    if post_language is None:
+        body["verdict"]["language"] = None
+    else:
+        body["verdict"].pop("language", None)
+    assert client.post("/chat", json=body).text == "Qu'est-ce qui t'a fait dire ca ?"
+
+
 def test_opening_uses_the_name_when_one_is_sent(client, body):
     body["history"] = []
     body["user_name"] = "Mark"
@@ -120,17 +142,24 @@ def test_opening_uses_the_name_in_the_requested_language(client, body):
     assert "{name}" not in text
 
 
-def test_the_requested_language_reaches_the_system_prompt(client, set_chat, body):
+def test_the_requested_language_is_the_fallback_in_the_system_prompt(client, set_chat, body):
     fake = set_chat(FakeChat(["ok"]))
     body["language"] = "de"
     client.post("/chat", json=body)
-    assert "Respond in German" in fake.calls[0][0].content
+    assert "reply in German" in fake.calls[0][0].content
 
 
-def test_the_language_defaults_to_english_in_the_system_prompt(client, set_chat, body):
+def test_the_fallback_language_defaults_to_english_in_the_system_prompt(client, set_chat, body):
     fake = set_chat(FakeChat(["ok"]))
     client.post("/chat", json=body)
-    assert "Respond in English" in fake.calls[0][0].content
+    assert "reply in English" in fake.calls[0][0].content
+
+
+def test_the_system_prompt_follows_the_language_of_the_latest_message(client, set_chat, body):
+    fake = set_chat(FakeChat(["ok"]))
+    body["history"] = [{"role": "user", "text": "Ich habe das im Zorn geschrieben."}]
+    client.post("/chat", json=body)
+    assert "language the person wrote their latest message in" in fake.calls[0][0].content
 
 
 def test_an_unsupported_language_is_422(client, body):

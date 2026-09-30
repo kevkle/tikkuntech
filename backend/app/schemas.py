@@ -23,6 +23,13 @@ class Verdict(BaseModel):
         description="Severity of the harm. Use 'low' when the post is not harmful."
     )
     reason: str = Field(description="One short sentence explaining the verdict.")
+    language: Language | None = Field(
+        default=None,
+        description=(
+            "Language the post is written in when it is en, ar, fr or de; null when it is "
+            "any other language or cannot be told."
+        ),
+    )
 
 
 class RouteVerdict(BaseModel):

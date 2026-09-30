@@ -137,7 +137,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         raise HTTPException(status_code=503, detail="Chat is not configured")
 
     if not req.history:
-        opening = opening_for(req.language, req.user_name)
+        # The post's own language wins; the picker only decides when it is unknown.
+        opening = opening_for(req.verdict.language or req.language, req.user_name)
         _log_transcript("opening", None, 1, None, opening)
         return _static(opening)
 
