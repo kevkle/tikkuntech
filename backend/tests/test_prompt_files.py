@@ -23,7 +23,7 @@ def test_prompts_dir_is_the_prompts_package():
 
 
 def test_load_prompt_drops_trailing_newlines_only():
-    text = load_prompt("chat/closing.md")
+    text = load_prompt("chat/locales/en/closing.md")
     assert not text.endswith("\n")
     assert text.startswith("This is your final message")
 
@@ -55,7 +55,8 @@ def test_load_sections_rejects_text_before_the_first_heading(tmp_path, monkeypat
 
 def make_locale_tree(tmp_path, monkeypatch):
     (tmp_path / "chat" / "locales" / "fr").mkdir(parents=True)
-    (tmp_path / "chat" / "opening.md").write_text("english\n")
+    (tmp_path / "chat" / "locales" / "en").mkdir(parents=True)
+    (tmp_path / "chat" / "locales" / "en" / "opening.md").write_text("english\n")
     (tmp_path / "chat" / "locales" / "fr" / "opening.md").write_text("francais\n")
     monkeypatch.setattr("app.prompts.loader.PROMPTS_DIR", tmp_path)
 
@@ -67,12 +68,12 @@ def test_localized_path_prefers_the_language_file(tmp_path, monkeypatch):
 
 def test_localized_path_falls_back_to_the_english_file(tmp_path, monkeypatch):
     make_locale_tree(tmp_path, monkeypatch)
-    assert localized_path("chat/opening.md", "de") == "chat/opening.md"
+    assert localized_path("chat/opening.md", "de") == "chat/locales/en/opening.md"
 
 
-def test_localized_path_for_english_is_the_file_itself(tmp_path, monkeypatch):
+def test_localized_path_for_english_is_the_english_locale_file(tmp_path, monkeypatch):
     make_locale_tree(tmp_path, monkeypatch)
-    assert localized_path("chat/opening.md", "en") == "chat/opening.md"
+    assert localized_path("chat/opening.md", "en") == "chat/locales/en/opening.md"
 
 
 def test_load_prompt_drops_the_needs_review_marker(tmp_path, monkeypatch):
@@ -100,7 +101,7 @@ def test_locale_folders_are_supported_languages():
 @pytest.mark.parametrize("path", LOCALE_FILES, ids=lambda p: f"{p.parent.name}/{p.name}")
 def test_locale_files_mirror_an_english_file(path):
     rel = path.relative_to(PROMPTS_DIR).as_posix()
-    english = f"chat/{path.name}"
+    english = f"chat/locales/en/{path.name}"
     assert (PROMPTS_DIR / english).exists()
     assert load_prompt(rel).strip()
     if path.name in SECTIONED:
@@ -108,7 +109,7 @@ def test_locale_files_mirror_an_english_file(path):
 
 
 def test_opening_is_a_prompt_file():
-    assert FIXED_OPENING == load_prompt("chat/opening.md")
+    assert FIXED_OPENING == load_prompt("chat/locales/en/opening.md")
     assert OPENINGS["en"] == FIXED_OPENING
 
 
@@ -129,9 +130,9 @@ def test_branches_file_has_one_section_per_branch():
         assert support_chat.BRANCH_ADDENDA[branch] == sections[branch]
 
 
-@pytest.mark.parametrize("file", ["stages", "examples"])
-def test_phase_files_have_one_section_per_phase(file):
-    assert set(load_sections(f"chat/{file}.md")) == set(get_args(Phase))
+@pytest.mark.parametrize("rel", ["chat/stages.md", "chat/locales/en/examples.md"])
+def test_phase_files_have_one_section_per_phase(rel):
+    assert set(load_sections(rel)) == set(get_args(Phase))
 
 
 def test_every_phase_has_examples():
@@ -142,11 +143,11 @@ def test_every_phase_has_examples():
     "rel",
     [
         "chat/base.md",
-        "chat/closing.md",
-        "chat/opening.md",
+        "chat/locales/en/closing.md",
+        "chat/locales/en/opening.md",
         "chat/branches.md",
         "chat/stages.md",
-        "chat/examples.md",
+        "chat/locales/en/examples.md",
         "router.md",
         "classifier.md",
     ],
@@ -155,14 +156,16 @@ def test_prompt_files_are_not_empty(rel):
     assert load_prompt(rel).strip()
 
 
-@pytest.mark.parametrize("file", ["branches", "stages", "examples"])
-def test_no_section_is_empty(file):
-    assert all(text.strip() for text in load_sections(f"chat/{file}.md").values())
+@pytest.mark.parametrize(
+    "rel", ["chat/branches.md", "chat/stages.md", "chat/locales/en/examples.md"]
+)
+def test_no_section_is_empty(rel):
+    assert all(text.strip() for text in load_sections(rel).values())
 
 
 def test_module_constants_come_from_the_files():
     assert support_chat.SUPPORT_CHAT_SYSTEM_PROMPT == load_prompt("chat/base.md")
-    assert support_chat.CLOSING_INSTRUCTION == load_prompt("chat/closing.md")
+    assert support_chat.CLOSING_INSTRUCTION == load_prompt("chat/locales/en/closing.md")
     stages = load_sections("chat/stages.md")
     assert support_chat.LISTEN_NOTE == stages["listen"]
     assert support_chat.RETURN_TO_POST_NOTE == stages["return"]

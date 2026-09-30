@@ -22,15 +22,15 @@ def load_prompt(relative_path: str) -> str:
 
 
 def localized_path(relative_path: str, language: str) -> str:
-    """The language's copy of a prompt file, or the English file when it has none.
+    """The language's copy of a prompt file, or the English copy when it has none.
 
-    "chat/opening.md" in French is "chat/locales/fr/opening.md" if that file exists.
+    "chat/opening.md" in French is "chat/locales/fr/opening.md" if that file exists, and
+    otherwise "chat/locales/en/opening.md".
     """
-    if language == "en":
-        return relative_path
     folder, _, name = relative_path.rpartition("/")
-    candidate = f"{folder}/locales/{language}/{name}" if folder else f"locales/{language}/{name}"
-    return candidate if (PROMPTS_DIR / candidate).is_file() else relative_path
+    prefix = f"{folder}/locales" if folder else "locales"
+    candidate = f"{prefix}/{language}/{name}"
+    return candidate if (PROMPTS_DIR / candidate).is_file() else f"{prefix}/en/{name}"
 
 
 def load_sections(relative_path: str) -> dict[str, str]:
