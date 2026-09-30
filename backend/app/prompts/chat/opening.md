@@ -1,1 +1,1 @@
-What made you say that?
+hey, what made you want to post this right now?

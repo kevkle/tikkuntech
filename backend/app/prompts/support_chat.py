@@ -24,9 +24,24 @@ OPENINGS: dict[Language, str] = {
 }
 FIXED_OPENING = OPENINGS["en"]
 
+# The same opening with "{name}" in it, used when the person's name is known.
+OPENINGS_NAMED: dict[Language, str] = {
+    language: load_prompt(localized_path("chat/opening_named.md", language))
+    for language in LANGUAGES
+}
+NAME_PLACEHOLDER = "{name}"
 
-def opening_for(language: Language) -> str:
-    return OPENINGS[language]
+
+def _clean_name(user_name: str | None) -> str:
+    """The name on one line, without the context closing tag, or "" when there is none."""
+    return " ".join((user_name or "").replace(f"</{CONTEXT_TAG}>", "").split())
+
+
+def opening_for(language: Language, user_name: str | None = None) -> str:
+    name = _clean_name(user_name)
+    if not name:
+        return OPENINGS[language]
+    return OPENINGS_NAMED[language].replace(NAME_PLACEHOLDER, name)
 
 
 SUPPORT_CHAT_SYSTEM_PROMPT = load_prompt("chat/base.md")
@@ -91,7 +106,7 @@ def build_system_prompt(
     # Strip the closing tag from user text so a post cannot break out of the block.
     safe_post = post.replace(f"</{CONTEXT_TAG}>", "")
     # The name goes on one line, so collapse any newlines and drop the closing tag too.
-    safe_name = " ".join((user_name or "").replace(f"</{CONTEXT_TAG}>", "").split())
+    safe_name = _clean_name(user_name)
     name_line = f"Person's name: {safe_name}\n" if safe_name else ""
     sections = [
         SUPPORT_CHAT_SYSTEM_PROMPT,

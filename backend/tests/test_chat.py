@@ -103,6 +103,23 @@ def test_opening_is_in_the_requested_language(client, monkeypatch, body):
     assert client.post("/chat", json=body).text == "Qu'est-ce qui t'a fait dire ca ?"
 
 
+def test_opening_uses_the_name_when_one_is_sent(client, body):
+    body["history"] = []
+    body["user_name"] = "Mark"
+    assert (
+        client.post("/chat", json=body).text == "hey Mark, what made you want to post this right now?"
+    )
+
+
+def test_opening_uses_the_name_in_the_requested_language(client, body):
+    body["history"] = []
+    body["user_name"] = "Mark"
+    body["language"] = "de"
+    text = client.post("/chat", json=body).text
+    assert text.startswith("hey Mark,")
+    assert "{name}" not in text
+
+
 def test_the_requested_language_reaches_the_system_prompt(client, set_chat, body):
     fake = set_chat(FakeChat(["ok"]))
     body["language"] = "de"

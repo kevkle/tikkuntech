@@ -137,7 +137,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         raise HTTPException(status_code=503, detail="Chat is not configured")
 
     if not req.history:
-        opening = opening_for(req.language)
+        opening = opening_for(req.language, req.user_name)
         _log_transcript("opening", None, 1, None, opening)
         return _static(opening)
 
@@ -173,8 +173,10 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     )
     messages = [SystemMessage(content=system)]
     for m in req.history:
-        cls = HumanMessage if m.role == "user" else AIMessage
-        messages.append(cls(content=m.text))
+        if m.role == "user":
+            messages.append(HumanMessage(content=m.text))
+        else:
+            messages.append(AIMessage(content=m.text))
 
     # Pull the first chunk before responding so a failure to start becomes a 502.
     # Apart from the transcript line written when the stream ends (or is cut off), only
