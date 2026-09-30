@@ -214,24 +214,33 @@ def test_other_languages_use_the_english_examples(language):
     assert EXAMPLES_BY_LANGUAGE[language] == EXAMPLES
 
 
-@pytest.mark.parametrize("section", ["reflect", "close"])
-def test_example_replies_have_no_question(section):
-    replies = _replies(section)
-    assert len(replies) == EXPECTED_EXAMPLE_COUNTS[section]
+CLOSING_QUESTION = "What would you like to do with your post?"
+
+
+def test_reflect_example_replies_have_no_question():
+    replies = _replies("reflect")
+    assert len(replies) == EXPECTED_EXAMPLE_COUNTS["reflect"]
     assert not [r for r in replies if "?" in r]
 
 
-@pytest.mark.parametrize("section", ["reflect", "close"])
-def test_example_replies_are_two_sentences_at_most(section):
+def test_close_example_replies_end_with_the_closing_question_and_no_other():
+    replies = _replies("close")
+    assert len(replies) == EXPECTED_EXAMPLE_COUNTS["close"]
+    for reply in replies:
+        assert reply.strip().endswith(CLOSING_QUESTION)
+        assert reply.count("?") == 1
+
+
+@pytest.mark.parametrize("section,limit", [("reflect", 2), ("close", 3)])
+def test_example_replies_stay_within_the_sentence_limit(section, limit):
     for reply in _replies(section):
-        assert len(re.findall(r"[.!?](?:\s|$)", reply.strip())) <= 2
+        assert len(re.findall(r"[.!?](?:\s|$)", reply.strip())) <= limit
 
 
 def test_close_examples_do_not_list_the_options():
     text = _examples_text("en")["close"]
     for option in ("1. Edit it", "2. Save it for later", "3. Delete it", "4. Post it"):
         assert option not in text
-    assert "What would you like to do with your post" not in text
 
 
 def test_close_examples_start_from_the_reflect_reply():

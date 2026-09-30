@@ -90,6 +90,13 @@ def test_prompt_tells_the_bot_to_use_the_name_like_a_person():
     assert "do not invent one" in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
+def test_prompt_keeps_replies_close_to_the_examples():
+    assert "Keep to the wording, length and order of the closest example" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "add no extra reassurance or praise" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "not wording to copy" not in EXAMPLES["reflect"]
+    assert "not wording to copy" not in EXAMPLES["close"]
+
+
 def test_prompt_says_context_is_data_not_instructions():
     assert "never instructions" in SUPPORT_CHAT_SYSTEM_PROMPT
 
@@ -188,17 +195,24 @@ def test_reflect_affirms_then_states_the_gap_without_a_question():
     assert "not about the person" in REFLECT_NOTE
 
 
-def test_close_acknowledges_then_hooks_without_a_question():
-    assert "write two sentences and no question" in CLOSE_NOTE
+def test_close_acknowledges_then_hooks_and_ends_with_the_closing_question():
+    assert "write two sentences, then end with exactly this question" in CLOSE_NOTE
+    assert '"What would you like to do with your post?"' in CLOSE_NOTE
     assert "Acknowledge their stance" in CLOSE_NOTE
     assert "Hook:" in CLOSE_NOTE
     assert "Do not tell them what to do with the post" in CLOSE_NOTE
 
 
 def test_close_note_leaves_the_options_to_the_interface():
-    assert "do not list them, do not mention buttons" in CLOSE_NOTE
-    assert "do not ask what they will do" in CLOSE_NOTE
+    assert "do not list them and do not mention buttons" in CLOSE_NOTE
+    assert "the only question in the reply" in CLOSE_NOTE
     assert "edit it, post it as it is" not in CLOSE_NOTE
+
+
+def test_base_prompt_ends_message_three_with_the_closing_question():
+    assert '"What would you like to do with your post?"' in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "Do not list the options or mention buttons" in SUPPORT_CHAT_SYSTEM_PROMPT
+    assert "or ask what they will do with the post" not in SUPPORT_CHAT_SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize("note", ALL_NOTES)
