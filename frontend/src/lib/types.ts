@@ -34,4 +34,5 @@ export type Verdict = {
   category: Category;
   severity: "low" | "medium" | "high";
   reason: string;
+  language?: Language | null;
 };

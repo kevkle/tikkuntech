@@ -1,10 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import {
+  createTranslator,
+  NextIntlClientProvider,
+  useLocale,
+  useTranslations,
+} from "next-intl";
 import { DUMMY_POSTS, MainFeed } from "@/components/MainFeed";
 import { InterventionModal } from "@/components/InterventionModal";
-import { DEFAULT_LANGUAGE, isLanguage } from "@/i18n/config";
+import { DEFAULT_LANGUAGE, dirOf, isLanguage } from "@/i18n/config";
+import { MESSAGES } from "@/i18n/messages";
 import { classifyPost, streamChat, type ChatPhase } from "@/lib/api";
 import type { Branch, Language, Message, Post, Verdict } from "@/lib/types";
 
@@ -37,6 +43,8 @@ export default function Page() {
   const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
   // The stage of the last bot message, sent back so the server knows what comes next.
   const [lastPhase, setLastPhase] = useState<ChatPhase | null>(null);
+  // The chat panel speaks the post's language; the picker only decides when it is unknown.
+  const modalLanguage: Language = pendingVerdict?.language ?? language;
 
   const abortRef = useRef<AbortController | null>(null);
   const nextId = useRef(0);
@@ -93,7 +101,14 @@ export default function Page() {
       console.error("chat failed:", err instanceof Error ? err.message : err);
       // The user can still delete or publish, so a chat failure never blocks them.
       setMessages((prev) => prev.filter((m) => !(m.id === aiId && m.text === "")));
-      setChatError(t("errors.chat"));
+      // Built outside the modal's provider, so it needs the post's language explicitly.
+      const postLanguage = verdict.language ?? language;
+      const tErrors = createTranslator({
+        locale: postLanguage,
+        messages: MESSAGES[postLanguage],
+        namespace: "errors",
+      });
+      setChatError(tErrors("chat"));
     } finally {
       if (abortRef.current === controller) setIsStreaming(false);
     }
@@ -153,23 +168,27 @@ export default function Page() {
         isPosting={isPosting}
         error={error}
       />
-      <InterventionModal
-        isOpen={isModalOpen}
-        messages={messages}
-        isStreaming={isStreaming}
-        chatError={chatError}
-        menuBranch={menuBranch}
-        onSendMessage={handleSendMessage}
-        onDeletePost={() => {
-          setDraft("");
-          closeModal();
-        }}
-        onPublishAnyway={() => {
-          publish(pendingPost);
-          closeModal();
-        }}
-        onClose={closeModal} // back to editing; draft stays in the feed
-      />
+      <div lang={modalLanguage} dir={dirOf(modalLanguage)}>
+        <NextIntlClientProvider locale={modalLanguage} messages={MESSAGES[modalLanguage]}>
+          <InterventionModal
+            isOpen={isModalOpen}
+            messages={messages}
+            isStreaming={isStreaming}
+            chatError={chatError}
+            menuBranch={menuBranch}
+            onSendMessage={handleSendMessage}
+            onDeletePost={() => {
+              setDraft("");
+              closeModal();
+            }}
+            onPublishAnyway={() => {
+              publish(pendingPost);
+              closeModal();
+            }}
+            onClose={closeModal} // back to editing; draft stays in the feed
+          />
+        </NextIntlClientProvider>
+      </div>
     </>
   );
 }
